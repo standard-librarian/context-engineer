@@ -1,0 +1,120 @@
+graph TB
+    subgraph "Development Environment"
+        DEV_MACHINE[Developer Machine<br/>macOS/Linux]
+        DEV_PG[(PostgreSQL 17<br/>localhost:5432)]
+        DEV_APP[Phoenix App<br/>localhost:4000]
+        DEV_SKILLS[Skills Directory<br/>/mnt/skills]
+        
+        DEV_MACHINE --> DEV_APP
+        DEV_APP --> DEV_PG
+        DEV_APP --> DEV_SKILLS
+    end
+    
+    subgraph "Docker Deployment"
+        DOCKER[Docker Compose]
+        
+        subgraph "App Container"
+            APP[Phoenix App<br/>Elixir 1.19]
+            EMBED_MODEL[Bumblebee Model<br/>~90MB cached]
+        end
+        
+        subgraph "Database Container"
+            PG[(PostgreSQL 17<br/>+ pgvector)]
+            PG_DATA[/Persistent Volume<br/>pg_data/]
+        end
+        
+        subgraph "Skills Volume"
+            SKILLS_VOL[/Skills Volume<br/>skills_data/]
+        end
+        
+        DOCKER --> APP
+        DOCKER --> PG
+        DOCKER --> SKILLS_VOL
+        APP --> PG
+        APP --> EMBED_MODEL
+        APP --> SKILLS_VOL
+        PG --> PG_DATA
+    end
+    
+    subgraph "Production Deployment"
+        LB[Load Balancer<br/>nginx/HAProxy]
+        
+        subgraph "App Tier"
+            APP1[Phoenix Instance 1<br/>:4000]
+            APP2[Phoenix Instance 2<br/>:4000]
+            APP3[Phoenix Instance 3<br/>:4000]
+        end
+        
+        subgraph "Database Tier"
+            PRIMARY[(Primary DB<br/>PostgreSQL 17)]
+            REPLICA1[(Replica 1<br/>Read-only)]
+            REPLICA2[(Replica 2<br/>Read-only)]
+        end
+        
+        subgraph "Cache Tier"
+            REDIS[(Redis<br/>Embedding Cache)]
+        end
+        
+        subgraph "Storage Tier"
+            S3[S3/Object Storage<br/>Model & Skills]
+        end
+        
+        subgraph "Monitoring"
+            PROM[Prometheus]
+            GRAF[Grafana]
+            ALERTS[AlertManager]
+        end
+        
+        LB --> APP1
+        LB --> APP2
+        LB --> APP3
+        
+        APP1 --> PRIMARY
+        APP2 --> PRIMARY
+        APP3 --> PRIMARY
+        
+        APP1 --> REPLICA1
+        APP2 --> REPLICA2
+        APP3 --> REPLICA1
+        
+        APP1 --> REDIS
+        APP2 --> REDIS
+        APP3 --> REDIS
+        
+        APP1 --> S3
+        APP2 --> S3
+        APP3 --> S3
+        
+        PRIMARY -.->|Replication| REPLICA1
+        PRIMARY -.->|Replication| REPLICA2
+        
+        APP1 -->|Metrics| PROM
+        APP2 -->|Metrics| PROM
+        APP3 -->|Metrics| PROM
+        PROM --> GRAF
+        PROM --> ALERTS
+    end
+    
+    subgraph "Client Applications"
+        CLAUDE_CODE[Claude Code]
+        VSCODE[VS Code + Extensions]
+        CI_CD[CI/CD Pipeline]
+        CUSTOM_APPS[Custom AI Apps]
+    end
+    
+    CLAUDE_CODE -->|HTTPS| LB
+    VSCODE -->|HTTPS| LB
+    CI_CD -->|HTTPS| LB
+    CUSTOM_APPS -->|HTTPS| LB
+    
+    classDef dev fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
+    classDef docker fill:#fff4e1,stroke:#ff9900,stroke-width:2px
+    classDef prod fill:#e1ffe1,stroke:#00cc66,stroke-width:2px
+    classDef monitor fill:#ffe1e1,stroke:#cc0000,stroke-width:2px
+    classDef client fill:#f0e1ff,stroke:#9900cc,stroke-width:2px
+    
+    class DEV_MACHINE,DEV_PG,DEV_APP,DEV_SKILLS dev
+    class DOCKER,APP,PG,EMBED_MODEL,PG_DATA,SKILLS_VOL docker
+    class LB,APP1,APP2,APP3,PRIMARY,REPLICA1,REPLICA2,REDIS,S3 prod
+    class PROM,GRAF,ALERTS monitor
+    class CLAUDE_CODE,VSCODE,CI_CD,CUSTOM_APPS client

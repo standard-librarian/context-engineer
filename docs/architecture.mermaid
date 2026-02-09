@@ -1,0 +1,155 @@
+graph TB
+    subgraph "AI Agents Layer"
+        CLAUDE[Claude Code]
+        CHATGPT[ChatGPT]
+        CURSOR[Cursor IDE]
+        CUSTOM[Custom AI Apps]
+    end
+    
+    subgraph "Agent Skills Layer"
+        QUERY_SKILL[context-query skill<br/>Auto-triggers on queries]
+        RECORD_SKILL[context-recording skill<br/>Auto-triggers on decisions]
+        DOMAIN_SKILLS[Domain-specific skills<br/>database, auth, api]
+    end
+    
+    subgraph "API Gateway Layer"
+        ROUTER[Phoenix Router<br/>Port 4000]
+    end
+    
+    subgraph "Controller Layer"
+        CTX_CTRL[ContextController<br/>Query & Bundle]
+        ADR_CTRL[ADRController<br/>CRUD + Auto-embed]
+        FAIL_CTRL[FailureController<br/>CRUD + Auto-embed]
+        MEET_CTRL[MeetingController<br/>CRUD + Auto-embed]
+        GRAPH_CTRL[GraphController<br/>Relationship Queries]
+    end
+    
+    subgraph "Service Layer"
+        SEARCH[SearchService<br/>Semantic Search]
+        BUNDLER[BundlerService<br/>Context Bundling]
+        EMBED[EmbeddingService<br/>GenServer + Bumblebee]
+        GRAPH_SVC[Graph Service<br/>BFS Traversal]
+    end
+    
+    subgraph "Knowledge Module"
+        KNOWLEDGE[Knowledge Module<br/>Business Logic Layer]
+        AUTO_TAG[auto_tags/1<br/>Keyword Extraction]
+        AUTO_LINK[auto_link/3<br/>ID Pattern Detection]
+        NEXT_ID[next_id/1<br/>Sequential ID Generation]
+        TIMELINE[timeline/2<br/>Chronological Queries]
+    end
+    
+    subgraph "Data Layer"
+        REPO[Ecto Repo<br/>PostgreSQL Connection]
+        ADR_SCHEMA[ADR Schema<br/>String PK]
+        FAIL_SCHEMA[Failure Schema<br/>String PK]
+        MEET_SCHEMA[Meeting Schema<br/>String PK]
+        REL_SCHEMA[Relationship Schema<br/>Graph Edges]
+    end
+    
+    subgraph "Database"
+        PG[(PostgreSQL 17<br/>with pgvector)]
+        TABLES[("adrs<br/>failures<br/>meetings<br/>relationships<br/>context_usage")]
+        VECTORS["Vector Indexes<br/>Cosine Similarity<br/>384-dim embeddings"]
+    end
+    
+    subgraph "Background Jobs"
+        SCHEDULER[Quantum Scheduler<br/>Cron Jobs]
+        DECAY[DecayWorker<br/>Daily 2 AM<br/>Archive old items]
+    end
+    
+    subgraph "Supervision Tree"
+        APP[Application<br/>Supervisor]
+        TELEMETRY[Telemetry]
+        PUBSUB[PubSub]
+    end
+    
+    %% AI Agents to Skills
+    CLAUDE --> QUERY_SKILL
+    CLAUDE --> RECORD_SKILL
+    CHATGPT --> QUERY_SKILL
+    CURSOR --> DOMAIN_SKILLS
+    CUSTOM --> QUERY_SKILL
+    
+    %% Skills to API
+    QUERY_SKILL --> ROUTER
+    RECORD_SKILL --> ROUTER
+    DOMAIN_SKILLS --> ROUTER
+    
+    %% Router to Controllers
+    ROUTER --> CTX_CTRL
+    ROUTER --> ADR_CTRL
+    ROUTER --> FAIL_CTRL
+    ROUTER --> MEET_CTRL
+    ROUTER --> GRAPH_CTRL
+    
+    %% Controllers to Services
+    CTX_CTRL --> SEARCH
+    CTX_CTRL --> BUNDLER
+    ADR_CTRL --> KNOWLEDGE
+    FAIL_CTRL --> KNOWLEDGE
+    MEET_CTRL --> KNOWLEDGE
+    GRAPH_CTRL --> GRAPH_SVC
+    
+    %% Services to Knowledge
+    SEARCH --> KNOWLEDGE
+    BUNDLER --> SEARCH
+    BUNDLER --> GRAPH_SVC
+    
+    %% Knowledge to Components
+    KNOWLEDGE --> AUTO_TAG
+    KNOWLEDGE --> AUTO_LINK
+    KNOWLEDGE --> NEXT_ID
+    KNOWLEDGE --> TIMELINE
+    KNOWLEDGE --> EMBED
+    
+    %% Knowledge to Data Layer
+    KNOWLEDGE --> REPO
+    AUTO_LINK --> GRAPH_SVC
+    
+    %% Data Layer
+    REPO --> ADR_SCHEMA
+    REPO --> FAIL_SCHEMA
+    REPO --> MEET_SCHEMA
+    REPO --> REL_SCHEMA
+    
+    %% Schemas to Database
+    ADR_SCHEMA --> PG
+    FAIL_SCHEMA --> PG
+    MEET_SCHEMA --> PG
+    REL_SCHEMA --> PG
+    
+    %% Database internals
+    PG --> TABLES
+    PG --> VECTORS
+    
+    %% Background Jobs
+    SCHEDULER --> DECAY
+    DECAY --> KNOWLEDGE
+    
+    %% Supervision
+    APP --> TELEMETRY
+    APP --> REPO
+    APP --> PUBSUB
+    APP --> EMBED
+    APP --> SCHEDULER
+    APP --> ROUTER
+    
+    %% Embedding Service
+    EMBED -->|Bumblebee Model<br/>sentence-transformers| EMBED
+    
+    classDef agents fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
+    classDef skills fill:#fff4e1,stroke:#ff9900,stroke-width:2px
+    classDef api fill:#f0e1ff,stroke:#9900cc,stroke-width:2px
+    classDef service fill:#e1ffe1,stroke:#00cc66,stroke-width:2px
+    classDef data fill:#ffe1e1,stroke:#cc0000,stroke-width:2px
+    classDef db fill:#e1e1ff,stroke:#0000cc,stroke-width:2px
+    classDef bg fill:#f5f5e1,stroke:#cccc00,stroke-width:2px
+    
+    class CLAUDE,CHATGPT,CURSOR,CUSTOM agents
+    class QUERY_SKILL,RECORD_SKILL,DOMAIN_SKILLS skills
+    class ROUTER,CTX_CTRL,ADR_CTRL,FAIL_CTRL,MEET_CTRL,GRAPH_CTRL api
+    class SEARCH,BUNDLER,EMBED,GRAPH_SVC,KNOWLEDGE service
+    class REPO,ADR_SCHEMA,FAIL_SCHEMA,MEET_SCHEMA,REL_SCHEMA data
+    class PG,TABLES,VECTORS db
+    class SCHEDULER,DECAY,APP,TELEMETRY,PUBSUB bg

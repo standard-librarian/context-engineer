@@ -1,0 +1,81 @@
+sequenceDiagram
+    participant Agent as AI Agent (Claude)
+    participant Skill as Agent Skill
+    participant API as Phoenix API
+    participant Service as Service Layer
+    participant Knowledge as Knowledge Module
+    participant Embed as EmbeddingService
+    participant DB as PostgreSQL
+    
+    Note over Agent,DB: Query Workflow
+    
+    Agent->>Agent: User asks: "Why PostgreSQL?"
+    Agent->>Skill: Trigger detected: "PostgreSQL"
+    Skill->>Skill: Load context-query skill
+    Skill->>API: POST /api/context/query<br/>{query: "PostgreSQL decision"}
+    
+    API->>Service: ContextController.query()
+    Service->>Embed: Generate query embedding
+    Embed->>Embed: Bumblebee model inference
+    Embed-->>Service: [0.23, -0.45, ...]
+    
+    Service->>Service: SearchService.semantic_search()
+    Service->>DB: SELECT * WHERE embedding <=> query<br/>ORDER BY similarity<br/>LIMIT 20
+    DB-->>Service: [ADR-001, ADR-003, FAIL-042]
+    
+    Service->>Service: Graph.find_related(items, depth=2)
+    Service->>DB: SELECT * FROM relationships<br/>WHERE from_id IN (...)
+    DB-->>Service: Related items graph
+    
+    Service->>Service: BundlerService.rank_items()
+    Service->>Service: Calculate composite scores<br/>30% recency + 50% relevance + 20% importance
+    
+    Service->>Service: Build token-limited bundle<br/>Max 4000 tokens
+    Service-->>API: {key_decisions: [ADR-001],<br/>known_issues: [FAIL-042],<br/>recent_changes: [...]}
+    
+    API-->>Skill: JSON response
+    Skill-->>Agent: Formatted context
+    Agent->>Agent: Synthesize response
+    Agent-->>Agent: "According to ADR-001,<br/>PostgreSQL was chosen because..."
+    
+    Note over Agent,DB: Record Workflow
+    
+    Agent->>Agent: User: "Document decision to use Redis"
+    Agent->>Skill: Trigger: "document decision"
+    Skill->>Skill: Load context-recording skill
+    Skill->>API: POST /api/adr<br/>{title: "Use Redis",<br/>decision: "...", context: "..."}
+    
+    API->>Knowledge: Knowledge.create_adr(params)
+    Knowledge->>Knowledge: next_id("adr")<br/>Generate ADR-004
+    Knowledge->>Knowledge: auto_tags(content)<br/>Extract ["redis", "cache"]
+    
+    Knowledge->>Embed: Generate embedding
+    Embed->>Embed: Bumblebee inference
+    Embed-->>Knowledge: [0.67, -0.12, ...]
+    
+    Knowledge->>DB: INSERT INTO adrs<br/>(id, title, embedding, ...)
+    DB-->>Knowledge: ADR-004 created
+    
+    Knowledge->>Knowledge: auto_link_item()<br/>Extract ID patterns
+    Knowledge->>DB: INSERT INTO relationships<br/>(ADR-004 -> FAIL-042)
+    
+    Knowledge-->>API: {:ok, %ADR{id: "ADR-004"}}
+    API-->>Skill: {id: "ADR-004", status: "created"}
+    Skill-->>Agent: "✓ Created ADR-004"
+    Agent-->>Agent: Confirmation message
+    
+    Note over Agent,DB: Background Jobs
+    
+    loop Daily at 2 AM
+        Scheduler->>DecayWorker: Run archival job
+        DecayWorker->>Knowledge: Get all active items
+        Knowledge->>DB: SELECT * WHERE status = 'active'
+        DB-->>Knowledge: All active items
+        
+        loop For each item
+            DecayWorker->>DecayWorker: Calculate decay score<br/>Age, usage, references
+            alt Score < 30
+                DecayWorker->>DB: UPDATE status = 'archived'
+            end
+        end
+    end
