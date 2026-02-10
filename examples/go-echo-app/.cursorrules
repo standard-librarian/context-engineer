@@ -1,0 +1,233 @@
+# Go Echo App - Context Engineering Integration
+
+This is a Go REST API using Echo framework with Context Engineering integration.
+
+## Before Suggesting Code
+
+Always query Context Engineering first to check organizational knowledge:
+
+```typescript
+// Check past decisions and known issues
+const context = await fetch('http://localhost:4000/api/context/query', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    query: 'relevant search terms',
+    domains: ['golang', 'api']
+  })
+});
+```
+
+## Available Skills
+
+Located in `skills/` directory:
+- `skills/public/go-api-query/` - Query Go patterns and decisions (auto-use)
+- `skills/user/go-api-record/` - Record decisions and failures (ask permission first)
+
+## Context Engineering API
+
+Base URL: http://localhost:4000/api
+
+### Query Endpoint
+```
+POST /context/query
+Body: {
+  "query": "search terms",
+  "domains": ["golang", "api"],
+  "max_tokens": 2000
+}
+```
+
+### Record ADR
+```
+POST /adr
+Body: {
+  "title": "Decision Title",
+  "decision": "What was decided",
+  "context": "Why it was decided",
+  "tags": ["golang", "category"]
+}
+```
+
+### Record Failure
+```
+POST /failure
+Body: {
+  "title": "Failure Title",
+  "root_cause": "What caused it",
+  "resolution": "How it was fixed",
+  "severity": "low|medium|high|critical"
+}
+```
+
+## Workflow
+
+### When User Asks Implementation Question
+
+1. Query organizational context first
+2. Check `key_decisions` for past architectural decisions
+3. Check `known_issues` for past failures in this area
+4. Suggest code based on organizational patterns, not generic patterns
+
+Example:
+```
+User: "How should I handle database errors?"
+
+You should:
+1. Query: {"query": "database error handling golang gorm"}
+2. Show past decisions (e.g., ADR-005: Error Wrapping Strategy)
+3. Show past failures (e.g., FAIL-010: Missing Error Context)
+4. Suggest code following those specific patterns
+```
+
+### When User Makes Decision
+
+1. Ask: "Should I record this as an ADR?"
+2. If yes, gather: title, decision, context, alternatives considered
+3. Create ADR via POST /adr
+4. Confirm: "Recorded as ADR-XXX"
+
+### When User Reports Bug/Incident
+
+1. Ask: "Should I record this incident?"
+2. If yes, gather: title, root cause, symptoms, resolution
+3. Create failure record via POST /failure
+4. Confirm: "Recorded as FAIL-XXX"
+
+## Auto-Triggers
+
+Query Context Engineering when user mentions:
+- "how should I..." → Query decisions + failures
+- "best practice for..." → Query decisions
+- "error handling" → Query errors + failures
+- "we've decided to..." → Suggest recording as ADR
+- "we had an issue..." → Suggest recording as failure
+- "why did we choose..." → Query relevant decisions
+- "past issues with..." → Query relevant failures
+
+## Code Patterns
+
+### Error Handling
+```go
+// Query: "golang error handling patterns"
+// Follow organizational pattern from ADR-XXX
+func processData(data []byte) error {
+    if err := validate(data); err != nil {
+        // Always wrap errors with context
+        return fmt.Errorf("validation failed: %w", err)
+    }
+    return nil
+}
+```
+
+### Database Operations
+```go
+// Query: "database transaction golang gorm"
+// Follow organizational pattern from ADR-XXX
+func createUser(db *gorm.DB, user *User) error {
+    return db.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Create(user).Error; err != nil {
+            return fmt.Errorf("create user: %w", err)
+        }
+        return nil
+    })
+}
+```
+
+### Validation
+```go
+// Query: "user input validation golang"
+// Check for past validation decisions and failures
+func validateEmail(email string) error {
+    pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+    matched, _ := regexp.MatchString(pattern, email)
+    if !matched {
+        return fmt.Errorf("invalid email format")
+    }
+    return nil
+}
+```
+
+## Integration Points
+
+### Handler Implementation
+Before writing handlers, query for:
+- Validation patterns
+- Error handling approaches
+- Past failures in similar endpoints
+
+### Database Setup
+Before configuring database, query for:
+- Connection pool sizing decisions
+- Transaction handling patterns
+- Past connection/performance issues
+
+### Middleware
+Before adding middleware, query for:
+- Authentication decisions
+- Authorization patterns
+- Past security issues
+
+## Reference Format
+
+When referencing organizational knowledge:
+✅ "According to ADR-005, we wrap all errors with fmt.Errorf"
+✅ "FAIL-012 shows this pattern caused connection pool issues"
+✅ "Based on past decisions (ADR-008), we use GORM for database access"
+
+❌ Don't: Suggest generic patterns without checking organizational context
+❌ Don't: Ignore past failures when suggesting solutions
+
+## Environment Variables
+
+- `CONTEXT_API_URL` - Context Engineering API URL (default: http://localhost:4000/api)
+- `PORT` - Server port (default: 8080)
+
+## Prerequisites
+
+Context Engineering server must be running:
+```bash
+cd ../../ && mix phx.server
+```
+
+## Testing Context Integration
+
+```bash
+# Test query from Go app
+curl -X POST http://localhost:8080/context/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "golang patterns"}'
+
+# Test direct API
+curl -X POST http://localhost:4000/api/context/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "golang error handling"}'
+```
+
+## Project Structure
+
+```
+.
+├── main.go              # Application entry point with Context Engineering integration
+├── handlers/            # HTTP handlers (query context before operations)
+├── models/              # Data models
+├── context/            # Context Engineering client
+├── skills/             # Agent skills
+│   ├── public/         # Auto-use skills (query)
+│   └── user/           # Permission-required skills (record)
+├── .cursorrules        # This file
+└── README.md
+```
+
+## Best Practices
+
+1. **Always query before suggesting** - Check organizational context first
+2. **Reference specific items** - Cite ADR-XXX or FAIL-XXX in responses
+3. **Suggest recording decisions** - Prompt user to document important choices
+4. **Consider known issues** - Don't suggest patterns that failed before
+5. **Link related context** - Connect decisions, failures, and meetings
+6. **Use Go idioms** - Follow Go conventions and organizational standards
+7. **Handle errors properly** - Follow organizational error handling patterns
+8. **Validate inputs** - Use organizational validation strategies
+9. **Test thoroughly** - Check both happy path and error cases
+10. **Document decisions** - Record ADRs for future reference
