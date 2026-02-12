@@ -13,7 +13,9 @@ defmodule ContextEngineeringWeb.ContextController do
     max_tokens = Map.get(params, "max_tokens", 4000)
     domains = Map.get(params, "domains", [])
 
-    {:ok, bundle} = BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
+    {:ok, bundle} =
+      BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
+
     json(conn, bundle)
   end
 
@@ -45,7 +47,7 @@ defmodule ContextEngineeringWeb.ContextController do
       |> Repo.all()
 
     meetings =
-      from(m in Meeting, where: m.status == "active", order_by: [desc: m.date], limit: ^limit)
+      from(m in Meeting, where: m.status != "archived", order_by: [desc: m.date], limit: ^limit)
       |> Repo.all()
 
     json(conn, %{adrs: adrs, failures: failures, meetings: meetings})

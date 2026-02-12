@@ -14,25 +14,21 @@ import (
 )
 
 func main() {
-	// Initialize database
 	db, err := gorm.Open(sqlite.Open("users.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto-migrate schema
 	if err := db.AutoMigrate(&models.User{}); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	// Initialize Context Engineering client
 	contextURL := os.Getenv("CONTEXT_API_URL")
 	if contextURL == "" {
 		contextURL = "http://localhost:4000/api"
 	}
 	contextClient := context.NewClient(contextURL)
 
-	// Record the decision to use Echo and SQLite
 	_ = contextClient.CreateADR(context.ADRRequest{
 		Title:    "Use Echo Framework for Go REST API",
 		Decision: "Selected Echo as the web framework for its simplicity and performance",
@@ -52,30 +48,24 @@ func main() {
 		Stakeholders: []string{"backend-team"},
 	})
 
-	// Initialize Echo
 	e := echo.New()
 
-	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// Initialize handlers
 	userHandler := handlers.NewUserHandler(db, contextClient)
 
-	// Routes
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]string{"status": "ok"})
 	})
 
-	// User routes
 	e.GET("/users", userHandler.GetUsers)
 	e.GET("/users/:id", userHandler.GetUser)
 	e.POST("/users", userHandler.CreateUser)
 	e.PUT("/users/:id", userHandler.UpdateUser)
 	e.DELETE("/users/:id", userHandler.DeleteUser)
 
-	// Context Engineering integration endpoint
 	e.POST("/context/query", func(c echo.Context) error {
 		var req context.QueryRequest
 		if err := c.Bind(&req); err != nil {
@@ -90,7 +80,6 @@ func main() {
 		return c.JSON(200, result)
 	})
 
-	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

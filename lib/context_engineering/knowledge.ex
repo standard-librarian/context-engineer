@@ -41,7 +41,9 @@ defmodule ContextEngineering.Knowledge do
 
   def update_adr(id, params) do
     case Repo.get(ADR, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       adr ->
         changeset = ADR.changeset(adr, params)
 
@@ -59,6 +61,16 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists ADRs with optional filtering.
+
+  ## Parameters
+    * `params` - Optional map with filters:
+      * `"status"` - Filter by status (default: "active")
+
+  ## Returns
+    List of ADR structs ordered by created_date descending.
+  """
   def list_adrs(params \\ %{}) do
     status = Map.get(params, "status", "active")
 
@@ -93,7 +105,9 @@ defmodule ContextEngineering.Knowledge do
 
   def update_failure(id, params) do
     case Repo.get(Failure, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       failure ->
         changeset = Failure.changeset(failure, params)
 
@@ -111,6 +125,26 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists Failures with optional filtering.
+
+  ## Parameters
+    * `params` - Optional map with filters:
+      * `"status"` - Filter by status (default: "resolved")
+
+  ## Available Fields
+    * `"title"` - Failure title
+    * `"symptoms"` - Observed symptoms
+    * `"root_cause"` - Root cause analysis
+    * `"resolution"` - How it was resolved
+    * `"severity"` - Severity level
+    * `"status"` - Current status
+    * `"tags"` - Associated tags
+    * `"incident_date"` - Date of incident
+
+  ## Returns
+    List of Failure structs ordered by incident_date descending.
+  """
   def list_failures(params \\ %{}) do
     status = Map.get(params, "status", "resolved")
 
@@ -147,7 +181,9 @@ defmodule ContextEngineering.Knowledge do
 
   def update_meeting(id, params) do
     case Repo.get(Meeting, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       meeting ->
         changeset = Meeting.changeset(meeting, params)
 
@@ -165,6 +201,23 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists Meetings with optional filtering.
+
+  ## Parameters
+    * `params` - Optional map with filters:
+      * `"status"` - Filter by status (default: "active")
+
+  ## Available Fields
+    * `"meeting_title"` - Title of the meeting
+    * `"decisions"` - Decisions made during the meeting
+    * `"status"` - Current status
+    * `"tags"` - Associated tags
+    * `"date"` - Date of meeting
+
+  ## Returns
+    List of Meeting structs ordered by date descending.
+  """
   def list_meetings(params \\ %{}) do
     status = Map.get(params, "status", "active")
 
@@ -209,9 +262,11 @@ defmodule ContextEngineering.Knowledge do
   # --- Auto Tags ---
 
   @tag_keywords %{
-    "database" => ~w(database db postgresql postgres mysql sql query migration schema table index),
+    "database" =>
+      ~w(database db postgresql postgres mysql sql query migration schema table index),
     "performance" => ~w(performance slow latency throughput bottleneck optimization cache load),
-    "infrastructure" => ~w(infrastructure deploy deployment server container docker kubernetes k8s aws cloud),
+    "infrastructure" =>
+      ~w(infrastructure deploy deployment server container docker kubernetes k8s aws cloud),
     "security" => ~w(security auth authentication authorization vulnerability xss csrf injection),
     "frontend" => ~w(frontend ui ux component react liveview template css javascript browser),
     "api" => ~w(api endpoint rest graphql http request response json),
@@ -251,7 +306,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn a ->
-        %{id: a.id, type: "adr", title: a.title, date: a.created_date, tags: a.tags, status: a.status}
+        %{
+          id: a.id,
+          type: "adr",
+          title: a.title,
+          date: a.created_date,
+          tags: a.tags,
+          status: a.status
+        }
       end)
 
     failures =
@@ -261,7 +323,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn f ->
-        %{id: f.id, type: "failure", title: f.title, date: f.incident_date, tags: f.tags, status: f.status}
+        %{
+          id: f.id,
+          type: "failure",
+          title: f.title,
+          date: f.incident_date,
+          tags: f.tags,
+          status: f.status
+        }
       end)
 
     meetings =
@@ -271,7 +340,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn m ->
-        %{id: m.id, type: "meeting", title: m.meeting_title, date: m.date, tags: m.tags, status: m.status}
+        %{
+          id: m.id,
+          type: "meeting",
+          title: m.meeting_title,
+          date: m.date,
+          tags: m.tags,
+          status: m.status
+        }
       end)
 
     snapshots =
@@ -281,7 +357,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn s ->
-        %{id: s.id, type: "snapshot", title: s.message, date: s.date, tags: s.tags, status: s.status}
+        %{
+          id: s.id,
+          type: "snapshot",
+          title: s.message,
+          date: s.date,
+          tags: s.tags,
+          status: s.status
+        }
       end)
 
     (adrs ++ failures ++ meetings ++ snapshots)
@@ -342,7 +425,9 @@ defmodule ContextEngineering.Knowledge do
 
   def update_snapshot(id, params) do
     case Repo.get(Snapshot, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       snapshot ->
         changeset = Snapshot.changeset(snapshot, params)
 

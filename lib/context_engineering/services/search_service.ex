@@ -110,14 +110,45 @@ defmodule ContextEngineering.Services.SearchService do
   end
 
   @doc """
-  Search with tag and date filters.
+  Search with tag, date, type, and result limit filters.
+
+  ## Parameters
+    * `query_text` - The search query string
+    * `filters` - Map with atom keys:
+      * `:tags` - List of tag strings to filter by (default: [])
+      * `:date_from` - Start date (Date struct or nil)
+      * `:date_to` - End date (Date struct or nil)
+      * `:types` - List of atoms [:adr, :failure, :meeting, :snapshot] (default: all types)
+      * `:top_k` - Maximum number of results to return (default: 20)
+
+  ## Examples
+
+      # Search with tag filter
+      SearchService.filtered_search("database", %{tags: ["performance"]})
+
+      # Search with date range
+      SearchService.filtered_search("database", %{
+        date_from: ~D[2024-01-01],
+        date_to: ~D[2024-12-31]
+      })
+
+      # Search specific types with limit
+      SearchService.filtered_search("architecture", %{
+        types: [:adr, :failure],
+        top_k: 10
+      })
+
+  ## Returns
+    List of result maps with keys: id, type, title, content, tags, created_date, similarity
   """
-  def filtered_search(query_text, filters) do
+  def filtered_search(query_text, filters \\ %{}) do
     tags = Map.get(filters, :tags, [])
     date_from = Map.get(filters, :date_from)
     date_to = Map.get(filters, :date_to)
+    types = Map.get(filters, :types, [:adr, :failure, :meeting, :snapshot])
+    top_k = Map.get(filters, :top_k, 20)
 
-    {:ok, results} = semantic_search(query_text)
+    {:ok, results} = semantic_search(query_text, types: types, top_k: top_k)
 
     results
     |> maybe_filter_by_tags(tags)
@@ -137,6 +168,7 @@ defmodule ContextEngineering.Services.SearchService do
   defp maybe_filter_by_date(results, date_from, date_to) do
     Enum.filter(results, fn result ->
       date = result.created_date
+
       (is_nil(date_from) || Date.compare(date, date_from) in [:gt, :eq]) &&
         (is_nil(date_to) || Date.compare(date, date_to) in [:lt, :eq])
     end)
