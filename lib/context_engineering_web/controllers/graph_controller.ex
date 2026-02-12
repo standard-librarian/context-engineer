@@ -13,7 +13,11 @@ defmodule ContextEngineeringWeb.GraphController do
 
   def export(conn, params) do
     include_archived = Map.get(params, "include_archived", "false") == "true"
-    max_nodes = Map.get(params, "max_nodes", "1000") |> String.to_integer()
+    max_nodes =
+      case Integer.parse(Map.get(params, "max_nodes", "1000")) do
+        {value, ""} when value > 0 -> value
+        _ -> 1000
+      end
 
     {:ok, graph_data} =
       Graph.export_graph(
