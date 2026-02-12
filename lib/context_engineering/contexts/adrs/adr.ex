@@ -5,9 +5,23 @@ defmodule ContextEngineering.Contexts.ADRs.ADR do
 
   @derive {Jason.Encoder,
            only: [
-             :id, :title, :decision, :context, :options_considered, :outcome,
-             :status, :created_date, :supersedes, :superseded_by, :tags, :author,
-             :stakeholders, :access_count_30d, :reference_count, :inserted_at, :updated_at
+             :id,
+             :title,
+             :decision,
+             :context,
+             :options_considered,
+             :outcome,
+             :status,
+             :created_date,
+             :supersedes,
+             :superseded_by,
+             :tags,
+             :author,
+             :stakeholders,
+             :access_count_30d,
+             :reference_count,
+             :inserted_at,
+             :updated_at
            ]}
 
   @primary_key {:id, :string, autogenerate: false}
@@ -37,9 +51,19 @@ defmodule ContextEngineering.Contexts.ADRs.ADR do
   def changeset(adr, attrs) do
     adr
     |> cast(attrs, [
-      :id, :title, :decision, :context, :options_considered,
-      :outcome, :status, :created_date, :supersedes, :superseded_by,
-      :tags, :author, :stakeholders
+      :id,
+      :title,
+      :decision,
+      :context,
+      :options_considered,
+      :outcome,
+      :status,
+      :created_date,
+      :supersedes,
+      :superseded_by,
+      :tags,
+      :author,
+      :stakeholders
     ])
     |> validate_required([:id, :title, :decision, :created_date])
     |> validate_inclusion(:status, ["active", "superseded", "archived"])

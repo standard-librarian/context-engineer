@@ -329,3 +329,36 @@ The system automatically:
 - Extracts tags from content (database, performance, security, etc.)
 - Creates graph relationships when text references other IDs (ADR-001, FAIL-042, etc.)
 - Classifies error patterns and severity (for event endpoints)
+
+## Feedback After Resolution
+
+When a failure is resolved, submit feedback to improve future remediation:
+
+1. **Query context** for related failures or ADRs
+2. **Record the resolution** by updating the failure with `resolution` and `prevention` fields
+3. **Submit feedback** indicating which items helped resolve the issue
+
+```bash
+# Update failure with resolution
+curl -X PUT http://localhost:4000/api/failure/FAIL-001 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "failure": {
+      "status": "resolved",
+      "resolution": "Added exponential backoff retry logic",
+      "prevention": "Use circuit breaker pattern for external API calls"
+    }
+  }'
+
+# Submit feedback (if this failure came from a context query)
+curl -X POST http://localhost:4000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_id": "qry_abc123",
+    "overall_rating": 5,
+    "items_used": ["FAIL-001", "ADR-003"],
+    "agent_id": "my-agent"
+  }'
+```
+
+This feedback loop helps the system learn which resolutions are most effective and improves ranking for future remediation queries.

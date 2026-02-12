@@ -14,7 +14,12 @@ triggers:
   - database
   - authentication
   - API design
-version: 1.0.0
+  - error
+  - fix
+  - resolution
+  - how to resolve
+  - remediate
+version: 1.1.0
 ---
 
 # Context Engineering Query Skill
@@ -50,6 +55,7 @@ curl -X POST http://localhost:4000/api/context/query \
 Response:
 ```json
 {
+  "query_id": "qry_abc123def456",
   "key_decisions": [
     {"id": "ADR-001", "type": "adr", "title": "Choose PostgreSQL", "content": "...", "tags": [...]}
   ],
@@ -62,6 +68,8 @@ Response:
   "total_items": 3
 }
 ```
+
+**Important:** Save the `query_id` from the response — it's required for submitting feedback.
 
 ### List by Type
 
@@ -110,6 +118,172 @@ curl "http://localhost:4000/api/context/recent?limit=5"
 curl "http://localhost:4000/api/graph/related/ADR-001?type=adr&depth=2"
 ```
 
+## Feedback Loop Protocol
+
+After querying and using context, submit feedback to improve future results.
+
+### Submit Feedback
+
+```bash
+curl -X POST http://localhost:4000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_id": "qry_abc123def456",
+    "query_text": "database connection pooling",
+    "overall_rating": 4,
+    "items_helpful": ["ADR-001", "FAIL-001"],
+    "items_not_helpful": ["MEET-003"],
+    "items_used": ["ADR-001"],
+    "missing_context": "Need more info on connection string formats",
+    "agent_id": "claude-3-opus",
+    "session_id": "sess_xyz789",
+    "metadata": {"task_type": "debugging", "domain": "database"}
+  }'
+```
+
+Response:
+```json
+{
+  "status": "recorded",
+  "feedback_id": "fb_001"
+}
+```
+
+**Fields:**
+- `query_id` (required): The ID returned from your context query
+- `query_text` (optional): Original query for reference
+- `overall_rating` (optional): 1-5 scale, overall helpfulness
+- `items_helpful` (optional): Array of item IDs that were useful
+- `items_not_helpful` (optional): Array of item IDs that weren't relevant
+- `items_used` (optional): Array of item IDs actually referenced in your work
+- `missing_context` (optional): Text describing what was missing
+- `agent_id` (optional): Identifier for the AI agent
+- `session_id` (optional): Session identifier for correlation
+- `metadata` (optional): Additional key-value pairs
+
+### Feedback Statistics
+
+```bash
+curl http://localhost:4000/api/feedback/stats
+```
+
+Response:
+```json
+{
+  "total_feedback": 150,
+  "avg_rating": 3.8,
+  "top_missing_context": ["Redis configuration", "Docker networking"],
+  "most_helpful_items": [{"id": "ADR-001", "count": 42}]
+}
+```
+
+### When to Submit Feedback
+
+- After using context to complete a task (successful or not)
+- Mark items that were actually used/referenced in your implementation
+- Rate overall helpfulness (1 = not helpful, 5 = exactly what needed)
+- Note missing context that would have been valuable
+- Helps improve ranking and retrieval for future queries
+
+## Auto-Remediation API
+
+Find matching resolved failures when encountering errors. This searches for similar past incidents with known resolutions.
+
+### Request
+
+```bash
+curl -X POST http://localhost:4000/api/remediate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "error_message": "connection refused to database on port 5432",
+    "stack_trace": "java.sql.SQLException: Connection refused\n\tat Database.connect(Database.java:42)",
+    "pattern": "connection_error"
+  }'
+```
+
+**Fields:**
+- `error_message` (required): The error text or exception message
+- `stack_trace` (optional): Full stack trace for better matching
+- `pattern` (optional): Pre-classified pattern (database_error, connection_error, etc.)
+
+### Response
+
+```json
+{
+  "matches": [
+    {
+      "id": "FAIL-001",
+      "title": "Database Connection Pool Exhaustion",
+      "similarity": 0.89,
+      "resolution": "Increased pool size to 200, added connection timeout monitoring",
+      "prevention": "Configure pool sizing based on expected concurrent connections",
+      "pattern": "resource_exhaustion",
+      "related_adrs": ["ADR-003"]
+    }
+  ],
+  "total_matches": 1
+}
+```
+
+### When to Call
+
+- Encountering runtime errors or exceptions
+- Test failures in CI/CD pipelines
+- Unexpected behavior or performance degradation
+- Before escalating to human intervention
+- During incident response
+
+### Go/Echo Integration
+
+```go
+func FindRemediation(errorMessage, stackTrace string) (*RemediationResponse, error) {
+    payload, _ := json.Marshal(map[string]interface{}{
+        "error_message": errorMessage,
+        "stack_trace":   stackTrace,
+    })
+
+    resp, err := http.Post("http://localhost:4000/api/remediate",
+        "application/json", bytes.NewBuffer(payload))
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var result RemediationResponse
+    json.NewDecoder(resp.Body).Decode(&result)
+    return &result, nil
+}
+
+// Usage in error handling
+if err := db.Connect(); err != nil {
+    remediation, _ := FindRemediation(err.Error(), "")
+    if len(remediation.Matches) > 0 {
+        log.Printf("Known issue: %s. Resolution: %s",
+            remediation.Matches[0].Title,
+            remediation.Matches[0].Resolution)
+    }
+}
+```
+
+### Python Integration
+
+```python
+def find_remediation(error_message, stack_trace=None):
+    payload = {'error_message': error_message}
+    if stack_trace:
+        payload['stack_trace'] = stack_trace
+    resp = requests.post('http://localhost:4000/api/remediate', json=payload)
+    return resp.json() if resp.ok else None
+
+# Usage
+try:
+    db.connect()
+except Exception as e:
+    remediation = find_remediation(str(e))
+    if remediation and remediation['matches']:
+        print(f"Resolution: {remediation['matches'][0]['resolution']}")
+```
+
 ## Query Patterns
 
 ### Architecture Questions
@@ -145,6 +319,7 @@ import (
 )
 
 type ContextResponse struct {
+    QueryID       string                   `json:"query_id"`
     KeyDecisions  []map[string]interface{} `json:"key_decisions"`
     KnownIssues   []map[string]interface{} `json:"known_issues"`
     RecentChanges []map[string]interface{} `json:"recent_changes"`

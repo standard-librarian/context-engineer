@@ -82,7 +82,12 @@ defmodule ContextEngineeringWeb.EventControllerTest do
 
   test "POST /api/logs/stream processes error logs from batch", %{conn: conn} do
     logs = [
-      %{"level" => "ERROR", "message" => "connection refused to db", "app" => "echo-api", "timestamp" => "2026-02-12T10:00:00Z"},
+      %{
+        "level" => "ERROR",
+        "message" => "connection refused to db",
+        "app" => "echo-api",
+        "timestamp" => "2026-02-12T10:00:00Z"
+      },
       %{"level" => "INFO", "message" => "request completed", "app" => "echo-api"},
       %{"level" => "PANIC", "message" => "nil pointer dereference", "app" => "echo-api"}
     ]

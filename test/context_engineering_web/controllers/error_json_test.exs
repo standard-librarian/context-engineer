@@ -2,7 +2,9 @@ defmodule ContextEngineeringWeb.ErrorJSONTest do
   use ContextEngineeringWeb.ConnCase, async: true
 
   test "renders 404" do
-    assert ContextEngineeringWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
+    assert ContextEngineeringWeb.ErrorJSON.render("404.json", %{}) == %{
+             errors: %{detail: "Not Found"}
+           }
   end
 
   test "renders 500" do

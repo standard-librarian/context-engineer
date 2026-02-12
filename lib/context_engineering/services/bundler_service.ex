@@ -19,22 +19,21 @@ defmodule ContextEngineering.Services.BundlerService do
     max_tokens = Keyword.get(opts, :max_tokens, 4000)
     domains = Keyword.get(opts, :domains, [])
 
-    # Step 1: Semantic search
+    query_id = Ecto.UUID.generate()
+
     {:ok, semantic_results} = SearchService.semantic_search(query, top_k: 20)
 
-    # Step 2: Graph expansion
     graph_results = expand_with_graph(semantic_results)
 
-    # Step 3: Filter by domain if specified
     filtered = maybe_filter_domains(graph_results, domains)
 
-    # Step 4: Rank by composite score
     ranked = rank_items(filtered)
 
-    # Step 5: Build bundle with token limit
     bundle = build_token_limited_bundle(ranked, max_tokens)
 
-    {:ok, bundle}
+    bundle_with_query_id = Map.put(bundle, :query_id, query_id)
+
+    {:ok, bundle_with_query_id}
   end
 
   defp expand_with_graph(items) do
@@ -58,45 +57,72 @@ defmodule ContextEngineering.Services.BundlerService do
 
   defp hydrate_item(id, "adr") do
     case Repo.get(ADR, id) do
-      nil -> nil
+      nil ->
+        nil
+
       adr ->
         %{
-          id: adr.id, type: "adr", title: adr.title, content: adr.decision,
-          tags: adr.tags, created_date: adr.created_date, similarity: 0.5
+          id: adr.id,
+          type: "adr",
+          title: adr.title,
+          content: adr.decision,
+          tags: adr.tags,
+          created_date: adr.created_date,
+          similarity: 0.5
         }
     end
   end
 
   defp hydrate_item(id, "failure") do
     case Repo.get(Failure, id) do
-      nil -> nil
+      nil ->
+        nil
+
       f ->
         %{
-          id: f.id, type: "failure", title: f.title, content: f.root_cause,
-          tags: f.tags, created_date: f.incident_date, similarity: 0.5
+          id: f.id,
+          type: "failure",
+          title: f.title,
+          content: f.root_cause,
+          tags: f.tags,
+          created_date: f.incident_date,
+          similarity: 0.5
         }
     end
   end
 
   defp hydrate_item(id, "meeting") do
     case Repo.get(Meeting, id) do
-      nil -> nil
+      nil ->
+        nil
+
       m ->
         %{
-          id: m.id, type: "meeting", title: m.meeting_title,
+          id: m.id,
+          type: "meeting",
+          title: m.meeting_title,
           content: Jason.encode!(m.decisions),
-          tags: m.tags, created_date: m.date, similarity: 0.5
+          tags: m.tags,
+          created_date: m.date,
+          similarity: 0.5
         }
     end
   end
 
   defp hydrate_item(id, "snapshot") do
     case Repo.get(Snapshot, id) do
-      nil -> nil
+      nil ->
+        nil
+
       s ->
         %{
-          id: s.id, type: "snapshot", title: s.message, content: s.message,
-          tags: s.tags, created_date: s.date, similarity: 0.5
+          id: s.id,
+          type: "snapshot",
+          title: s.message,
+          content: s.message,
+          tags: s.tags,
+          created_date: s.date,
+          similarity: 0.5
         }
     end
   end

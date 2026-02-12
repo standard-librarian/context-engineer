@@ -4,8 +4,16 @@ defmodule ContextEngineering.Contexts.Meetings.Meeting do
 
   @derive {Jason.Encoder,
            only: [
-             :id, :meeting_title, :date, :decisions, :attendees, :tags, :status,
-             :access_count_30d, :inserted_at, :updated_at
+             :id,
+             :meeting_title,
+             :date,
+             :decisions,
+             :attendees,
+             :tags,
+             :status,
+             :access_count_30d,
+             :inserted_at,
+             :updated_at
            ]}
 
   @primary_key {:id, :string, autogenerate: false}

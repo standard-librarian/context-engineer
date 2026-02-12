@@ -5,9 +5,24 @@ defmodule ContextEngineering.Contexts.Failures.Failure do
 
   @derive {Jason.Encoder,
            only: [
-             :id, :title, :incident_date, :severity, :root_cause, :symptoms, :impact,
-             :resolution, :prevention, :status, :pattern, :tags, :lessons_learned,
-             :author, :access_count_30d, :reference_count, :inserted_at, :updated_at
+             :id,
+             :title,
+             :incident_date,
+             :severity,
+             :root_cause,
+             :symptoms,
+             :impact,
+             :resolution,
+             :prevention,
+             :status,
+             :pattern,
+             :tags,
+             :lessons_learned,
+             :author,
+             :access_count_30d,
+             :reference_count,
+             :inserted_at,
+             :updated_at
            ]}
 
   @primary_key {:id, :string, autogenerate: false}
@@ -38,9 +53,20 @@ defmodule ContextEngineering.Contexts.Failures.Failure do
   def changeset(failure, attrs) do
     failure
     |> cast(attrs, [
-      :id, :title, :incident_date, :severity, :root_cause,
-      :symptoms, :impact, :resolution, :prevention, :status,
-      :pattern, :tags, :lessons_learned, :author
+      :id,
+      :title,
+      :incident_date,
+      :severity,
+      :root_cause,
+      :symptoms,
+      :impact,
+      :resolution,
+      :prevention,
+      :status,
+      :pattern,
+      :tags,
+      :lessons_learned,
+      :author
     ])
     |> validate_required([:id, :title, :incident_date, :root_cause])
     |> validate_inclusion(:severity, ["low", "medium", "high", "critical"])
