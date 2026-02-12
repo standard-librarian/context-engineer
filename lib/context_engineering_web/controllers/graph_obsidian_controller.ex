@@ -709,11 +709,18 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
             // Setup controls
             this.setupControls();
 
-            // Focus graph
+            // Focus graph and initialize forces
             setTimeout(() => {
               if (this.graphRef.current) {
                 this.graphRef.current.zoomToFit(400, 50);
                 window.graphInstance = this.graphRef.current;
+
+                // Initialize custom forces with forceX/forceY for center gravity
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                this.graphRef.current.d3Force('x', window.d3.forceX(centerX).strength(0.3));
+                this.graphRef.current.d3Force('y', window.d3.forceY(centerY).strength(0.3));
+                this.graphRef.current.d3Force('collide', window.d3.forceCollide(12));
               }
             }, 500);
           }
@@ -774,12 +781,15 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
               }
             });
 
-            // Center strength
+            // Center strength - use forceX/forceY which support strength
             document.getElementById('center-strength').addEventListener('input', (e) => {
               const value = parseFloat(e.target.value);
               document.getElementById('center-value').textContent = value;
               if (this.graphRef.current) {
-                this.graphRef.current.d3Force('center').strength(value);
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                this.graphRef.current.d3Force('x', window.d3.forceX(centerX).strength(value));
+                this.graphRef.current.d3Force('y', window.d3.forceY(centerY).strength(value));
                 this.graphRef.current.d3ReheatSimulation();
               }
             });
@@ -940,6 +950,12 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
               d3VelocityDecay: 0.3,
               warmupTicks: 100,
               cooldownTicks: 0,
+              d3Force: (simulation) => {
+                // Set up initial forces - center gravity will use forceX/forceY
+                simulation
+                  .force('charge').strength(-300)
+                  .force('link').distance(50);
+              },
 
               // Performance
               enableNodeDrag: true,
