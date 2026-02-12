@@ -1,0 +1,6 @@
+#!/bin/sh
+# Post-commit hook: creates a context snapshot from the latest commit.
+# Install: cp priv/hooks/post-commit .git/hooks/ && chmod +x .git/hooks/post-commit
+
+cd "$(git rev-parse --show-toplevel)/context_engineering" || exit 0
+mix context.snapshot 2>/dev/null || true
