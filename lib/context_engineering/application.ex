@@ -10,7 +10,8 @@ defmodule ContextEngineering.Application do
     children = [
       ContextEngineeringWeb.Telemetry,
       ContextEngineering.Repo,
-      {DNSCluster, query: Application.get_env(:context_engineering, :dns_cluster_query) || :ignore},
+      {DNSCluster,
+       query: Application.get_env(:context_engineering, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ContextEngineering.PubSub},
       # Embedding service (GenServer with loaded model)
       ContextEngineering.Services.EmbeddingService,

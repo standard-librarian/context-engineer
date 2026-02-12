@@ -107,7 +107,9 @@ defmodule ContextEngineering.Events.EventProcessor do
           "impact" => build_impact(params),
           "status" => "investigating",
           "pattern" => "performance",
-          "tags" => ["performance", "auto-captured"] ++ list_if(params["app_name"]) ++ list_if(params["metric_name"]),
+          "tags" =>
+            ["performance", "auto-captured"] ++
+              list_if(params["app_name"]) ++ list_if(params["metric_name"]),
           "author" => "system"
         }
 
@@ -234,7 +236,9 @@ defmodule ContextEngineering.Events.EventProcessor do
   defp parse_date(timestamp) when is_binary(timestamp) do
     # Try ISO 8601 datetime first, then plain date
     case DateTime.from_iso8601(timestamp) do
-      {:ok, dt, _} -> Date.to_iso8601(DateTime.to_date(dt))
+      {:ok, dt, _} ->
+        Date.to_iso8601(DateTime.to_date(dt))
+
       _ ->
         case Date.from_iso8601(timestamp) do
           {:ok, _} -> timestamp

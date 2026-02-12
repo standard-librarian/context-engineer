@@ -8,9 +8,10 @@ alias ContextEngineering.Contexts.Relationships.Graph
 IO.puts("Generating embeddings and seeding data...")
 
 # --- ADR-001 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Choose PostgreSQL over MongoDB for database. Use PostgreSQL as primary database for all services. Need strong consistency, complex queries, and ACID compliance."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Choose PostgreSQL over MongoDB for database. Use PostgreSQL as primary database for all services. Need strong consistency, complex queries, and ACID compliance."
+  )
 
 %ADR{
   id: "ADR-001",
@@ -34,9 +35,10 @@ IO.puts("Generating embeddings and seeding data...")
 IO.puts("  Inserted ADR-001")
 
 # --- ADR-002 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Use Redis for caching layer. Implement Redis as distributed cache for API responses and session data."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Use Redis for caching layer. Implement Redis as distributed cache for API responses and session data."
+  )
 
 %ADR{
   id: "ADR-002",
@@ -61,9 +63,10 @@ IO.puts("  Inserted ADR-001")
 IO.puts("  Inserted ADR-002")
 
 # --- ADR-003 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Adopt Phoenix LiveView for admin dashboard. Build internal tools with LiveView for real-time updates."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Adopt Phoenix LiveView for admin dashboard. Build internal tools with LiveView for real-time updates."
+  )
 
 %ADR{
   id: "ADR-003",
@@ -87,24 +90,31 @@ IO.puts("  Inserted ADR-002")
 IO.puts("  Inserted ADR-003")
 
 # --- FAIL-001 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Database connection pool exhaustion under load. Connection pool size insufficient for peak load. API response times increased to 30s, 500 errors."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Database connection pool exhaustion under load. Connection pool size insufficient for peak load. API response times increased to 30s, 500 errors."
+  )
 
 %Failure{
   id: "FAIL-001",
   title: "Database Connection Pool Exhaustion",
   incident_date: ~D[2025-11-03],
   severity: "high",
-  root_cause: "Connection pool size insufficient for peak load. Default pool of 10 connections was overwhelmed during Black Friday traffic spike.",
+  root_cause:
+    "Connection pool size insufficient for peak load. Default pool of 10 connections was overwhelmed during Black Friday traffic spike.",
   symptoms: "API response times increased to 30s, 500 errors on 15% of requests",
   impact: "15% of users affected for 2 hours during peak shopping period",
   resolution: "Increased pool size to 200, added connection pool monitoring alerts",
-  prevention: ["Added connection pool monitoring", "Updated load tests to simulate 10x traffic", "Created runbook for pool exhaustion"],
+  prevention: [
+    "Added connection pool monitoring",
+    "Updated load tests to simulate 10x traffic",
+    "Created runbook for pool exhaustion"
+  ],
   status: "resolved",
   pattern: "resource_exhaustion",
   tags: ["database", "performance", "infrastructure"],
-  lessons_learned: "Always monitor resource utilization and load test with realistic traffic patterns. Default configs are not production-ready.",
+  lessons_learned:
+    "Always monitor resource utilization and load test with realistic traffic patterns. Default configs are not production-ready.",
   author: "oncall@company.com",
   embedding: embedding
 }
@@ -113,24 +123,31 @@ IO.puts("  Inserted ADR-003")
 IO.puts("  Inserted FAIL-001")
 
 # --- FAIL-002 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Redis cache stampede causing cascading failures. Multiple cache keys expired simultaneously causing all requests to hit the database."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Redis cache stampede causing cascading failures. Multiple cache keys expired simultaneously causing all requests to hit the database."
+  )
 
 %Failure{
   id: "FAIL-002",
   title: "Redis Cache Stampede",
   incident_date: ~D[2025-12-10],
   severity: "critical",
-  root_cause: "Multiple cache keys expired simultaneously causing all requests to hit the database. TTLs were all set to exactly 1 hour.",
+  root_cause:
+    "Multiple cache keys expired simultaneously causing all requests to hit the database. TTLs were all set to exactly 1 hour.",
   symptoms: "Database CPU at 100%, all API endpoints returning 503",
   impact: "Complete service outage for 45 minutes",
   resolution: "Implemented jittered TTLs and cache warming. Added circuit breaker pattern.",
-  prevention: ["Randomize cache TTLs", "Implement cache warming on deploy", "Add circuit breakers"],
+  prevention: [
+    "Randomize cache TTLs",
+    "Implement cache warming on deploy",
+    "Add circuit breakers"
+  ],
   status: "resolved",
   pattern: "cache_stampede",
   tags: ["caching", "performance", "database"],
-  lessons_learned: "Never use uniform cache expiration times. Always add jitter to TTLs. Related to ADR-002 Redis caching decision.",
+  lessons_learned:
+    "Never use uniform cache expiration times. Always add jitter to TTLs. Related to ADR-002 Redis caching decision.",
   author: "oncall@company.com",
   embedding: embedding
 }
@@ -139,9 +156,10 @@ IO.puts("  Inserted FAIL-001")
 IO.puts("  Inserted FAIL-002")
 
 # --- MEET-001 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Q4 Architecture Review. Decided to migrate to Kubernetes. Approved database sharding plan for Q1. Performance budget of 200ms p99 for all API endpoints."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Q4 Architecture Review. Decided to migrate to Kubernetes. Approved database sharding plan for Q1. Performance budget of 200ms p99 for all API endpoints."
+  )
 
 %Meeting{
   id: "MEET-001",
@@ -151,7 +169,10 @@ IO.puts("  Inserted FAIL-002")
     "items" => [
       %{"decision" => "Migrate to Kubernetes by end of Q1", "owner" => "platform-team"},
       %{"decision" => "Approve database sharding plan", "owner" => "data-team"},
-      %{"decision" => "Set performance budget: 200ms p99 for all API endpoints", "owner" => "all-teams"}
+      %{
+        "decision" => "Set performance budget: 200ms p99 for all API endpoints",
+        "owner" => "all-teams"
+      }
     ]
   },
   attendees: ["jane@company.com", "bob@company.com", "alice@company.com", "cto@company.com"],
@@ -164,9 +185,10 @@ IO.puts("  Inserted FAIL-002")
 IO.puts("  Inserted MEET-001")
 
 # --- MEET-002 ---
-{:ok, embedding} = EmbeddingService.generate_embedding(
-  "Incident Post-Mortem: Black Friday Outage. Review of FAIL-001 connection pool issue and FAIL-002 cache stampede. Action items for preventing future incidents."
-)
+{:ok, embedding} =
+  EmbeddingService.generate_embedding(
+    "Incident Post-Mortem: Black Friday Outage. Review of FAIL-001 connection pool issue and FAIL-002 cache stampede. Action items for preventing future incidents."
+  )
 
 %Meeting{
   id: "MEET-002",
@@ -174,7 +196,10 @@ IO.puts("  Inserted MEET-001")
   date: ~D[2025-12-15],
   decisions: %{
     "items" => [
-      %{"decision" => "All services must have connection pool monitoring", "owner" => "platform-team"},
+      %{
+        "decision" => "All services must have connection pool monitoring",
+        "owner" => "platform-team"
+      },
       %{"decision" => "Quarterly load testing required", "owner" => "qa-team"},
       %{"decision" => "Cache TTL jitter must be applied everywhere", "owner" => "backend-team"}
     ]

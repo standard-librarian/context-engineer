@@ -93,4 +93,145 @@ defmodule ContextEngineering.Contexts.Relationships.Graph do
 
     :ok
   end
+
+  @doc """
+  Export the entire knowledge graph for visualization.
+
+  Returns a map with:
+  - `:nodes` - List of all knowledge items (ADRs, Failures, Meetings, Snapshots)
+  - `:edges` - List of all relationships between items
+
+  ## Options
+
+    - `:include_archived` - Include archived items (default: false)
+    - `:max_nodes` - Maximum nodes to return (default: 1000)
+
+  ## Returns
+
+    - `{:ok, %{nodes: [...], edges: [...]}}`
+
+  ## Examples
+
+      iex> Graph.export_graph()
+      {:ok, %{
+        nodes: [
+          %{id: "ADR-001", type: "adr", title: "Use PostgreSQL", ...},
+          %{id: "FAIL-023", type: "failure", title: "DB timeout", ...}
+        ],
+        edges: [
+          %{from: "ADR-001", to: "FAIL-023", type: "references", strength: 1.0}
+        ]
+      }}
+
+  """
+  def export_graph(opts \\ []) do
+    include_archived = Keyword.get(opts, :include_archived, false)
+    max_nodes = Keyword.get(opts, :max_nodes, 1000)
+
+    nodes = collect_all_nodes(include_archived, max_nodes)
+    edges = collect_all_edges()
+
+    {:ok, %{nodes: nodes, edges: edges}}
+  end
+
+  defp collect_all_nodes(include_archived, max_nodes) do
+    alias ContextEngineering.Contexts.ADRs.ADR
+    alias ContextEngineering.Contexts.Failures.Failure
+    alias ContextEngineering.Contexts.Meetings.Meeting
+    alias ContextEngineering.Contexts.Snapshots.Snapshot
+
+    adrs =
+      if include_archived do
+        from(a in ADR, limit: ^div(max_nodes, 4))
+      else
+        from(a in ADR, where: a.status != "archived", limit: ^div(max_nodes, 4))
+      end
+      |> Repo.all()
+      |> Enum.map(fn a ->
+        %{
+          id: a.id,
+          type: "adr",
+          title: a.title,
+          status: a.status,
+          tags: a.tags || [],
+          created_date: a.created_date,
+          reference_count: a.reference_count || 0
+        }
+      end)
+
+    failures =
+      if include_archived do
+        from(f in Failure, limit: ^div(max_nodes, 4))
+      else
+        from(f in Failure, where: f.status != "archived", limit: ^div(max_nodes, 4))
+      end
+      |> Repo.all()
+      |> Enum.map(fn f ->
+        %{
+          id: f.id,
+          type: "failure",
+          title: f.title,
+          severity: f.severity,
+          status: f.status,
+          tags: f.tags || [],
+          created_date: f.incident_date,
+          reference_count: f.reference_count || 0
+        }
+      end)
+
+    meetings =
+      if include_archived do
+        from(m in Meeting, limit: ^div(max_nodes, 4))
+      else
+        from(m in Meeting, where: m.status == "active", limit: ^div(max_nodes, 4))
+      end
+      |> Repo.all()
+      |> Enum.map(fn m ->
+        %{
+          id: m.id,
+          type: "meeting",
+          title: m.meeting_title,
+          status: m.status,
+          tags: m.tags || [],
+          created_date: m.date,
+          reference_count: 0
+        }
+      end)
+
+    snapshots =
+      if include_archived do
+        from(s in Snapshot, limit: ^div(max_nodes, 4))
+      else
+        from(s in Snapshot, where: s.status == "active", limit: ^div(max_nodes, 4))
+      end
+      |> Repo.all()
+      |> Enum.map(fn s ->
+        %{
+          id: s.id,
+          type: "snapshot",
+          title: s.message,
+          status: s.status,
+          tags: s.tags || [],
+          created_date: s.date,
+          reference_count: 0
+        }
+      end)
+
+    adrs ++ failures ++ meetings ++ snapshots
+  end
+
+  defp collect_all_edges do
+    from(r in Relationship)
+    |> Repo.all()
+    |> Enum.map(fn r ->
+      %{
+        from: r.from_id,
+        from_type: r.from_type,
+        to: r.to_id,
+        to_type: r.to_type,
+        type: r.relationship_type,
+        strength: r.strength
+      }
+    end)
+  end
 end

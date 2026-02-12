@@ -1,718 +1,600 @@
-# Context Engineering System
+# Context Engineering
 
-> An AI-native organizational knowledge management system that enables AI agents to query and learn from past decisions, failures, and meetings.
+> **Organizational memory for AI-powered development teams**
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Elixir](https://img.shields.io/badge/elixir-1.19-purple.svg)](https://elixir-lang.org/)
-[![Phoenix](https://img.shields.io/badge/phoenix-1.8-orange.svg)](https://phoenixframework.org/)
-[![PostgreSQL](https://img.shields.io/badge/postgresql-17-blue.svg)](https://postgresql.org/)
+Context Engineering is a Phoenix/Elixir application that captures, stores, and serves organizational knowledge to AI coding assistants. It enables AI agents (Cursor, GitHub Copilot, Claude) to answer questions like "Why did we choose PostgreSQL?" or "What failures have we had with authentication?" by querying a semantic knowledge base.
 
-## Overview
+##  What Problem Does This Solve?
 
-The Context Engineering System implements the **o16g (Outcome Engineering) manifesto** - transforming organizational knowledge from static documentation into an intelligent, queryable system that AI agents can use to make better decisions.
+When working on a team, important context is scattered everywhere:
+- Architecture decisions buried in old PRs
+- Incident post-mortems lost in Slack threads
+- Meeting notes scattered across docs
+- No context for new developers or AI assistants
 
-**Key Features:**
-- 🧠 **Semantic Search**: Find relevant context using natural language queries
-- 🔗 **Graph Relationships**: Auto-link related decisions, failures, and changes
-- 🤖 **Agent Skills**: Native integration with Claude Code, ChatGPT, Cursor
-- 📊 **Pattern Detection**: Learn from recurring failures
-- ⏰ **Automatic Archival**: Keep context fresh and relevant
-- 🔒 **Security First**: Read-only context access, input validation
+**Context Engineering solves this by:**
+- Storing decisions (ADRs), failures, meetings, and code snapshots
+- Enabling semantic search (meaning-based, not keyword matching)
+- Providing a simple API for AI assistants to query context
+- Building a knowledge graph showing how items relate
+- Auto-decaying old, unused information
 
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API Reference](#api-reference)
-- [Agent Skills](#agent-skills)
-- [Development](#development)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-
-## Quick Start
+##  Quick Start
 
 ### Prerequisites
 
-- Elixir 1.19+
-- PostgreSQL 17 with pgvector extension
-- 2GB RAM minimum (4GB recommended for ML model)
+- Elixir 1.15+ and Erlang/OTP 26+
+- PostgreSQL 14+ with pgvector extension
+- 2GB+ RAM (for local ML models)
 
-### 5-Minute Setup
+### Installation
 
 ```bash
-# Clone repository
-git clone <repo-url>
-cd context_engineering
+# Clone the repository
+git clone https://github.com/standard-librarian/context-engineer.git
+cd context-engineer/context_engineering
 
 # Install dependencies
 mix deps.get
 
-# Setup database (create + migrate + seed)
+# Setup database (creates DB, runs migrations, seeds)
 mix setup
 
-# Start server
+# Start the Phoenix server
 mix phx.server
-
-# Test it works
-curl http://localhost:4000/api/adr
 ```
 
-Server runs at `http://localhost:4000`
+Visit http://localhost:4000 to verify the server is running.
 
-### First Query
+### Your First Query
 
 ```bash
-# Query organizational knowledge
-curl -X POST http://localhost:4000/api/context/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "database decisions"}'
-
-# Returns ADRs, failures, and meetings related to databases
-```
-
-## Architecture
-
-### High-Level Overview
-
-```
-AI Agents (Claude Code, ChatGPT)
-        ↓
-   Agent Skills (context-query, context-recording)
-        ↓
-   Phoenix API (REST endpoints)
-        ↓
-   Service Layer (Search, Bundler, Graph)
-        ↓
-   Knowledge Module (Business logic)
-        ↓
-   Ecto + PostgreSQL (Data persistence)
-```
-
-**See detailed diagrams:**
-- [System Architecture](docs/architecture.mermaid)
-- [Data Flow](docs/data-flow.mermaid)
-- [Deployment Options](docs/deployment.mermaid)
-
-### Core Components
-
-#### 1. Knowledge Module
-Central business logic hub that handles:
-- CRUD operations for ADRs, Failures, Meetings
-- Auto-ID generation (ADR-001, FAIL-042, etc.)
-- Auto-tagging via keyword extraction
-- Auto-linking via ID pattern detection
-- Timeline queries across all types
-
-#### 2. Service Layer
-
-**EmbeddingService** (GenServer)
-- Loads Bumblebee ML model at startup (~90MB)
-- Generates 384-dim sentence embeddings
-- Caches model in memory
-
-**SearchService**
-- Semantic search using pgvector cosine similarity
-- Queries across ADRs, failures, meetings
-- Returns ranked results with similarity scores
-
-**BundlerService**
-- Orchestrates semantic search + graph expansion
-- Ranks by composite score: 30% recency + 50% relevance + 20% importance
-- Token-limited bundling (default 4000 tokens)
-- Splits results: key_decisions, known_issues, recent_changes
-
-**Graph Service**
-- BFS traversal with configurable depth
-- Auto-links items by extracting ID patterns
-- Relationship types: supersedes, caused_by, related_to, references
-
-#### 3. Data Layer
-
-**Schemas:**
-- `ADR`: Architectural Decision Records
-- `Failure`: Incident reports with root cause analysis
-- `Meeting`: Meeting decisions and action items
-- `Relationship`: Graph edges connecting items
-
-**All schemas include:**
-- String primary keys (e.g., "ADR-001")
-- Vector embeddings (384-dim)
-- Access tracking
-- Lifecycle status
-
-#### 4. Background Jobs
-
-**DecayWorker** (Quantum scheduled)
-- Runs daily at 2 AM
-- Calculates decay scores based on age, usage, references
-- Archives items with score < 30
-- Keeps context fresh and relevant
-
-## Installation
-
-### Development Setup
-
-```bash
-# 1. Install Elixir
-brew install elixir  # macOS
-# Or: https://elixir-lang.org/install.html
-
-# 2. Install PostgreSQL 17
-brew install postgresql@17
-brew services start postgresql@17
-
-# 3. Install pgvector extension
-brew install pgvector
-
-# 4. Clone and setup
-git clone <repo-url>
-cd context_engineering
-mix setup
-
-# 5. Verify
-mix test
-```
-
-### Docker Setup
-
-```bash
-# Build and run
-docker-compose up -d
-
-# Verify
-docker-compose ps
-curl http://localhost:4000/api/adr
-```
-
-### Production Setup
-
-See [Deployment Guide](docs/DEPLOYMENT.md)
-
-## Usage
-
-### Creating an ADR
-
-```bash
-# Via API
-curl -X POST http://localhost:4000/api/adr \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Use Redis for Caching",
-    "decision": "Implement Redis as primary cache layer",
-    "context": "Need distributed caching, team has Redis expertise",
-    "tags": ["cache", "redis", "performance"]
-  }'
-
-# Via Mix task (if inside codebase)
+# Create an ADR
 mix context.adr \
-  --title "Use Redis for Caching" \
-  --decision "Implement Redis as primary cache layer" \
-  --context "Need distributed caching"
+  --title "Use PostgreSQL for persistence" \
+  --decision "We will use PostgreSQL as our primary database" \
+  --context "We need ACID guarantees and complex relational queries"
+
+# Query the context (what AI agents do)
+mix context.query "Why did we choose PostgreSQL?"
 ```
 
-### Recording a Failure
+You should see your ADR returned with a high similarity score!
 
+##  Documentation
+
+### Core Concepts
+
+#### 1. **Knowledge Types**
+
+The system stores four types of organizational knowledge:
+
+- **ADRs (Architecture Decision Records)** - Why technical decisions were made
+  - Example: "Use Redis for session caching"
+  - Fields: title, decision, context, consequences, status
+  - ID format: `ADR-001`, `ADR-042`, etc.
+
+- **Failures** - What went wrong and how it was fixed
+  - Example: "Database connection pool exhausted"
+  - Fields: title, symptoms, root_cause, resolution, severity
+  - ID format: `FAIL-001`, `FAIL-042`, etc.
+
+- **Meetings** - What was discussed and decided
+  - Example: "Q1 Architecture Review"
+  - Fields: meeting_title, decisions (JSON), attendees
+  - ID format: `MEET-001`, `MEET-042`, etc.
+
+- **Snapshots** - Point-in-time codebase state from git commits
+  - Example: "Add user authentication system"
+  - Fields: commit_hash, author, message, branch
+  - ID format: `SNAP-001`, `SNAP-042`, etc.
+
+#### 2. **Semantic Search**
+
+Traditional search: "PostgreSQL" only matches exact word "PostgreSQL"
+
+Semantic search: "database choice" matches:
+- "Use PostgreSQL for persistence"
+- "Why we selected Postgres over MySQL"
+- "Database connection pool configuration"
+
+**How it works:**
+1. Text -> ML model -> 384-dimensional vector (embedding)
+2. Query -> same ML model -> query vector
+3. PostgreSQL + pgvector -> cosine similarity search
+4. Return items ranked by similarity (0.0 = unrelated, 1.0 = identical)
+
+#### 3. **Knowledge Graph**
+
+Items can reference each other:
+- ADR-001 "Use PostgreSQL" <- referenced by -> FAIL-023 "DB timeout"
+- FAIL-023 <- referenced by -> MEET-005 "Incident review"
+
+This creates a graph that the system traverses to find related context.
+
+**Auto-linking:** When you write "see ADR-001" in any content, the system automatically creates a relationship.
+
+#### 4. **Relevance Decay**
+
+Old, unused knowledge becomes less relevant over time:
+- Items get `access_count_30d` (how often queried)
+- Items get `reference_count` (how often linked to)
+- Background worker (daily) decrements scores
+- Very old items  status changes to "archived"
+- Archived items don't appear in search results
+
+### API Reference
+
+#### HTTP API
+
+**Query context** (used by AI agents):
 ```bash
-curl -X POST http://localhost:4000/api/failure \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Database Connection Pool Exhaustion",
-    "root_cause": "Pool size too small for peak load",
-    "symptoms": "API timeouts, 500 errors",
-    "resolution": "Increased pool to 200, added monitoring",
-    "severity": "high",
-    "pattern": "resource_exhaustion"
-  }'
-```
+POST /api/context/query
+Content-Type: application/json
 
-### Querying Context
-
-```bash
-# Simple query
-curl -X POST http://localhost:4000/api/context/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "database performance issues"}'
-
-# Returns:
 {
-  "key_decisions": [
-    {
-      "id": "ADR-001",
-      "title": "Choose PostgreSQL",
-      "decision": "...",
-      "tags": ["database"]
-    }
-  ],
-  "known_issues": [
-    {
-      "id": "FAIL-042",
-      "title": "Connection Pool Exhaustion",
-      "root_cause": "...",
-      "resolution": "..."
-    }
-  ],
-  "recent_changes": [...]
+  "query": "Why did we choose PostgreSQL?",
+  "max_tokens": 4000,
+  "types": ["adr", "failure"]
 }
 ```
 
-### Graph Queries
+Response:
+```json
+{
+  "query": "Why did we choose PostgreSQL?",
+  "items": [
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "Use PostgreSQL for persistence",
+      "content": "We will use PostgreSQL...",
+      "score": 0.92,
+      "tags": ["database", "postgresql"],
+      "created_date": "2024-01-15"
+    }
+  ],
+  "metadata": {
+    "total_items": 3,
+    "tokens_used": 1200,
+    "max_tokens": 4000
+  }
+}
+```
+
+**Record events** (from any app):
+```bash
+POST /api/events/error
+Content-Type: application/json
+
+{
+  "error_message": "Connection timeout",
+  "stack_trace": "...",
+  "severity": "high",
+  "service": "api-server",
+  "metadata": {}
+}
+```
+
+**Record deployments**:
+```bash
+POST /api/events/deploy
+Content-Type: application/json
+
+{
+  "version": "v1.2.3",
+  "service": "api-server",
+  "environment": "production",
+  "deployer": "alice"
+}
+```
+
+#### Mix Tasks (CLI)
 
 ```bash
-# Find related items
-curl "http://localhost:4000/api/graph/related/ADR-001?type=adr&depth=2"
+# Create ADR
+mix context.adr \
+  --title "Decision title" \
+  --decision "The decision we made" \
+  --context "Why we made it"
 
-# Returns:
+# Create failure
+mix context.failure \
+  --title "Failure title" \
+  --symptoms "What users saw" \
+  --root-cause "Why it happened" \
+  --resolution "How we fixed it"
+
+# Create meeting
+mix context.meeting \
+  --title "Meeting title" \
+  --decisions '{"api": "Use REST", "db": "Postgres"}'
+
+# Create snapshot from git
+mix context.snapshot
+
+# Query context
+mix context.query "your question here"
+```
+
+### Elixir Module Documentation
+
+For detailed API documentation, generate and view the ExDocs:
+
+```bash
+mix docs
+open doc/index.html
+```
+
+Key modules:
+- `ContextEngineering.Knowledge` - Main API for CRUD operations
+- `ContextEngineering.Services.EmbeddingService` - ML embeddings generation
+- `ContextEngineering.Services.SearchService` - Semantic search engine
+- `ContextEngineering.Services.BundlerService` - Context bundling for AI agents
+- `ContextEngineering.Contexts.Relationships.Graph` - Graph traversal
+
+##  Graph Visualization
+
+The knowledge graph shows how ADRs, Failures, Meetings, and Snapshots relate to each other through references.
+
+### Web-based Interactive Graph
+
+Start the server and open the graph visualization in your browser:
+
+```bash
+# Option 1: Using the Mix task (auto-opens browser)
+mix context.graph --web
+
+# Option 2: Manually
+mix phx.server
+# Then visit: http://localhost:4000/graph
+```
+
+**Features:**
+- Interactive force-directed graph layout
+- Color-coded by type (ADR=blue, Failure=red, Meeting=green, Snapshot=orange)
+- Node size indicates reference count (more referenced = larger)
+- Click nodes to see details
+- Drag to reposition
+- Zoom and pan
+- Filter archived items
+- Adjust max nodes
+
+### Command-Line Statistics
+
+View graph statistics from the terminal:
+
+```bash
+mix context.graph
+
+# Output:
+# Knowledge Graph Statistics:
+# ---------------------------
+# Total Nodes: 42
+#   - ADRs: 15
+#   - Failures: 18
+#   - Meetings: 7
+#   - Snapshots: 2
+# 
+# Total Edges: 67
+#
+# Relationship Types:
+#   - references: 67
+#
+# Most Referenced Items:
+#   - ADR-001: Use PostgreSQL (12 references)
+#   - FAIL-023: DB timeout (8 references)
+```
+
+### Export Graph Data
+
+Export the graph as JSON for external visualization tools:
+
+```bash
+# Export graph
+mix context.graph --export graph.json
+
+# Include archived items
+mix context.graph --export graph.json --include-archived
+
+# Limit nodes
+mix context.graph --export graph.json --max-nodes 500
+```
+
+The exported JSON has this structure:
+
+```json
 {
-  "item": {...},
-  "related": [
-    {"id": "FAIL-042", "type": "failure", "relationship": "caused_by"},
-    {"id": "MEET-003", "type": "meeting", "relationship": "discussed_in"}
+  "nodes": [
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "Use PostgreSQL",
+      "status": "active",
+      "tags": ["database"],
+      "reference_count": 12
+    }
+  ],
+  "edges": [
+    {
+      "from": "FAIL-023",
+      "to": "ADR-001",
+      "type": "references",
+      "strength": 1.0
+    }
   ]
 }
 ```
 
-## API Reference
+### API Endpoints
 
-### Core Endpoints
-
-#### Query Context
-
-```
-POST /api/context/query
-```
-
-**Request:**
-```json
-{
-  "query": "database decisions",
-  "max_tokens": 3000,
-  "domains": ["database", "performance"]
-}
-```
-
-**Response:**
-```json
-{
-  "key_decisions": [...],
-  "known_issues": [...],
-  "recent_changes": [...],
-  "total_items": 12
-}
-```
-
-#### Create ADR
-
-```
-POST /api/adr
-```
-
-**Request:**
-```json
-{
-  "title": "Decision Title",
-  "decision": "What was decided",
-  "context": "Why it was needed",
-  "tags": ["tag1", "tag2"]
-}
-```
-
-**Response:**
-```json
-{
-  "id": "ADR-004",
-  "status": "created",
-  "title": "Decision Title"
-}
-```
-
-### Full API Documentation
-
-See [API.md](docs/API.md) for complete endpoint reference.
-
-## Agent Skills
-
-The Context Engineering System integrates with AI agents via **Agent Skills** - the open standard for giving AI agents domain-specific expertise.
-
-### Available Skills
-
-#### 1. context-query
-
-**Location:** `skills/public/context-query/SKILL.md`
-
-**Purpose:** Query organizational knowledge before making decisions
-
-**Auto-triggers on:**
-- "why did we..."
-- "past decisions"
-- "known issues"
-- "architecture"
-
-**Example:**
-```
-User: "Why did we choose PostgreSQL?"
-
-Claude: [auto-loads context-query skill]
-        [queries API]
-        [returns ADR-001]
-        
-        "According to ADR-001, PostgreSQL was chosen for ACID 
-        compliance and team expertise. MongoDB was considered 
-        but ruled out due to consistency requirements."
-```
-
-#### 2. context-recording
-
-**Location:** `skills/user/context-recording/SKILL.md`
-
-**Purpose:** Record decisions, failures, meetings
-
-**Auto-triggers on:**
-- "document this"
-- "create ADR"
-- "record decision"
-- "log failure"
-
-**Example:**
-```
-User: "I just decided to use Redis for caching. Document this."
-
-Claude: [auto-loads context-recording skill]
-        [uses ADR template]
-        [creates ADR-004]
-        
-        "✓ Created ADR-004: Use Redis for Caching"
-```
-
-### Skill Installation
+Query graph data programmatically:
 
 ```bash
-# Skills are in the repository
-cd context_engineering
-ls -la skills/
+# Get full graph data
+curl http://localhost:4000/api/graph/export
 
-# Claude Code auto-discovers them
-# No installation needed
+# With options
+curl "http://localhost:4000/api/graph/export?max_nodes=100&include_archived=false"
+
+# Get items related to a specific node
+curl http://localhost:4000/api/graph/related/ADR-001?depth=2
 ```
 
-### Creating Custom Skills
+##  AI Agent Integration
 
-See [SKILLS.md](docs/SKILLS.md) for skill development guide.
+### For Cursor / GitHub Copilot
 
-## Development
+See the example Go application in the [`examples/go-echo-app`](https://github.com/standard-librarian/context-engineer/tree/main/examples/go-echo-app) directory.
 
-### Project Structure
+The example shows:
+1. Skills that query Context Engineering
+2. Agent configuration (`.cursorrules`, `.github/copilot-instructions.md`)
+3. Automatic context injection before operations
+
+### How AI Agents Use This
+
+1. Developer asks: "Why did we choose PostgreSQL?"
+2. AI agent calls: `POST /api/context/query` with the question
+3. Context Engineering returns: ADRs, failures, meetings related to PostgreSQL
+4. AI agent formats answer with full context and reasoning
+5. If operation fails, AI agent records it: `POST /api/events/error`
+
+### Benefits
+
+- AI gives accurate answers based on your org's decisions
+- New developers get up to speed faster
+- Failures are documented and searchable
+- Institutional knowledge doesn't live in one person's head
+
+##  Architecture
+
+### Technology Stack
+
+- **Framework**: Phoenix 1.8 (Elixir web framework)
+- **Database**: PostgreSQL 14+ with pgvector extension
+- **ML**: Bumblebee + Nx + EXLA (local embeddings, no API keys)
+- **Scheduler**: Quantum (cron-like job scheduling)
+- **Vector Search**: pgvector (efficient cosine similarity)
+
+### Key Design Decisions
+
+**Why Elixir/Phoenix?**
+- Excellent for real-time, concurrent systems
+- Built-in OTP for fault tolerance and supervision
+- Great for long-running ML model servers (GenServer)
+
+**Why local ML models (Bumblebee)?**
+- No external API dependencies (OpenAI, etc.)
+- No API keys needed
+- Lower latency (~50ms vs ~500ms)
+- Privacy: your code never leaves your server
+
+**Why PostgreSQL + pgvector?**
+- Single database for relational data + vectors
+- Mature, battle-tested
+- ACID guarantees for knowledge records
+- Efficient vector search via HNSW index
+
+### System Flow
 
 ```
-context_engineering/
-├── lib/
-│   ├── context_engineering/
-│   │   ├── application.ex          # Supervision tree
-│   │   ├── repo.ex                 # Ecto repo
-│   │   ├── knowledge.ex            # Business logic hub
-│   │   ├── contexts/               # Schemas
-│   │   │   ├── adrs/
-│   │   │   ├── failures/
-│   │   │   ├── meetings/
-│   │   │   └── relationships/
-│   │   ├── services/               # Services
-│   │   │   ├── embedding_service.ex
-│   │   │   ├── search_service.ex
-│   │   │   ├── bundler_service.ex
-│   │   │   └── graph.ex
-│   │   └── workers/                # Background jobs
-│   │       └── decay_worker.ex
-│   └── context_engineering_web/    # Phoenix
-│       ├── controllers/
-│       ├── router.ex
-│       └── endpoint.ex
-├── skills/                          # Agent skills
-│   ├── public/
-│   │   └── context-query/
-│   └── user/
-│       └── context-recording/
-├── priv/
-│   └── repo/
-│       ├── migrations/
-│       └── seeds.exs
-├── test/
-├── docs/                            # Documentation
-├── config/
-└── mix.exs
+Developer Question
+    |
+    v
+AI Assistant (Cursor/Copilot/Claude)
+    |
+    v
+HTTP: POST /api/context/query
+    |
+    v
+BundlerService.bundle_context/2
+    |
+    v
++---------------------+------------------+
+|  SearchService      |  EmbeddingService |
+|  semantic_search/2  |  generate/1      |
++---------------------+------------------+
+    |
+    v
+Graph.find_related/3 (expand via relationships)
+    |
+    v
+Rank by: similarity + recency + access_count + ref_count
+    |
+    v
+Token-limited bundle (fit within max_tokens)
+    |
+    v
+JSON response to AI assistant
+    |
+    v
+AI formats answer for developer
 ```
 
-### Running Tests
+##  Testing
 
 ```bash
-# All tests
+# Run all tests
 mix test
 
-# Specific test file
+# Run specific test file
 mix test test/context_engineering/knowledge_test.exs
 
-# With coverage
+# Run with coverage
 mix test --cover
 
-# Watch mode (requires mix_test_watch)
+# Run tests on file change (watch mode)
 mix test.watch
+```
+
+##  Development
+
+### Database Commands
+
+```bash
+# Create database
+mix ecto.create
+
+# Run migrations
+mix ecto.migrate
+
+# Reset database (drop, create, migrate, seed)
+mix ecto.reset
+
+# Rollback last migration
+mix ecto.rollback
+
+# Generate new migration
+mix ecto.gen.migration add_something
 ```
 
 ### Code Quality
 
 ```bash
+# Run precommit checks (format, compile, test)
+mix precommit
+
 # Format code
 mix format
 
-# Check formatting
-mix format --check-formatted
+# Check for unused dependencies
+mix deps.unlock --unused
 
 # Compile with warnings as errors
 mix compile --warnings-as-errors
-
-# Run all checks
-mix precommit
 ```
 
-### Adding New Features
-
-1. **Add migration:**
-   ```bash
-   mix ecto.gen.migration add_new_field
-   ```
-
-2. **Update schema:**
-   ```elixir
-   # lib/context_engineering/contexts/adrs/adr.ex
-   field :new_field, :string
-   ```
-
-3. **Update Knowledge module:**
-   ```elixir
-   # lib/context_engineering/knowledge.ex
-   def create_adr(params) do
-     # Handle new field
-   end
-   ```
-
-4. **Add tests:**
-   ```elixir
-   # test/context_engineering/knowledge_test.exs
-   test "handles new field" do
-     # ...
-   end
-   ```
-
-5. **Update docs:**
-   - API.md
-   - README.md
-   - CLAUDE.md
-
-## Deployment
-
-### Docker Compose (Recommended)
+### Interactive Shell
 
 ```bash
-# Production build
-docker-compose -f docker-compose.prod.yml up -d
-
-# Check logs
-docker-compose logs -f app
-
-# Scaling
-docker-compose up -d --scale app=3
-```
-
-### Manual Deployment
-
-```bash
-# Build release
-MIX_ENV=prod mix release
-
-# Run
-_build/prod/rel/context_engineering/bin/context_engineering start
-
-# Environment variables
-export DATABASE_URL="postgres://..."
-export SECRET_KEY_BASE="..."
-export PORT=4000
-```
-
-### Production Checklist
-
-- [ ] PostgreSQL with pgvector configured
-- [ ] Database credentials in env vars
-- [ ] SECRET_KEY_BASE set
-- [ ] SSL/TLS configured
-- [ ] Monitoring enabled (Prometheus/Grafana)
-- [ ] Log aggregation configured
-- [ ] Backups automated
-- [ ] Health check endpoint tested
-- [ ] Load balancer configured
-- [ ] Skills directory mounted
-
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for full guide.
-
-## Testing
-
-### Test Coverage
-
-Current coverage: **95%+**
-
-Key test suites:
-- Knowledge module (CRUD, auto-linking, auto-tagging)
-- SearchService (semantic search, filtering)
-- BundlerService (ranking, token limiting)
-- Controllers (all endpoints)
-- Graph traversal
-- Background jobs
-
-### Running Specific Tests
-
-```bash
-# Knowledge module
-mix test test/context_engineering/knowledge_test.exs
-
-# Services
-mix test test/context_engineering/services/
-
-# Controllers
-mix test test/context_engineering_web/controllers/
-
-# Integration tests
-mix test test/integration/
-```
-
-### Writing Tests
-
-```elixir
-defmodule ContextEngineering.KnowledgeTest do
-  use ContextEngineering.DataCase
-  
-  alias ContextEngineering.Knowledge
-  
-  test "creates ADR with auto-embedding" do
-    params = %{
-      "title" => "Test Decision",
-      "decision" => "Test content"
-    }
-    
-    assert {:ok, adr} = Knowledge.create_adr(params)
-    assert adr.id =~ ~r/^ADR-\d{3}$/
-    assert length(adr.embedding) == 384
-  end
-end
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### "Connection refused" when querying API
-
-**Cause:** Service not running
-
-**Solution:**
-```bash
-cd context_engineering
-mix phx.server
-```
-
-#### "Postgrex.Error: type 'vector' does not exist"
-
-**Cause:** pgvector extension not installed
-
-**Solution:**
-```sql
-psql -U postgres
-CREATE EXTENSION vector;
-```
-
-#### "EmbeddingService timeout"
-
-**Cause:** Model still downloading or loading
-
-**Solution:**
-- Wait 30-60 seconds for first startup
-- Check logs: `tail -f context_engineering.log`
-- Model is cached after first load
-
-#### Empty search results
-
-**Cause:** No data or query too specific
-
-**Solution:**
-```bash
-# Load seed data
-mix run priv/repo/seeds.exs
-
-# Try broader query
-curl -X POST http://localhost:4000/api/context/query \
-  -d '{"query": "database"}'
-```
-
-### Debug Mode
-
-```bash
-# Run with debug logging
-LOG_LEVEL=debug mix phx.server
-
-# IEx with debug
+# Start IEx with the application loaded
 iex -S mix phx.server
+
+# In IEx, access modules directly:
+iex> alias ContextEngineering.Knowledge
+iex> Knowledge.create_adr(%{
+...>   "title" => "Test ADR",
+...>   "decision" => "Test decision",
+...>   "context" => "Test context"
+...> })
 ```
 
-### Performance Issues
+##  Monitoring
 
-**Slow queries:**
-- Check database indexes
-- Review token limits in bundler
-- Consider adding IVFFlat indexes for vectors
+### Metrics (TODO)
 
-**High memory usage:**
-- Bumblebee model uses ~2GB
-- Consider external embedding service for production
-- Use connection pooling
+The application uses Telemetry for instrumentation. Metrics to track:
+- Query latency (embedding generation, search, bundling)
+- Cache hit rates
+- Background job execution
+- Database query performance
 
-## Contributing
+### Health Checks
 
-Contributions welcome! Please read [CONTRIBUTING.md](docs/CONTRIBUTING.md)
+```bash
+# Basic health check
+curl http://localhost:4000/health
 
-### Development Workflow
+# Check if embeddings are working
+curl -X POST http://localhost:4000/api/context/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}'
+```
 
-1. Fork repository
-2. Create feature branch
-3. Make changes
-4. Add tests
-5. Run `mix precommit`
-6. Submit PR
+##  Deployment
 
-### Code Style
+### Environment Variables
 
-- Follow Elixir style guide
-- Run `mix format`
-- Add typespecs
-- Document public functions
-- Write tests
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@localhost/context_engineering_prod
 
-## License
+# Phoenix
+SECRET_KEY_BASE=your-secret-key-base-here
+PHX_HOST=context-engineering.example.com
 
-Apache 2.0 - See [LICENSE](LICENSE)
+# Optional: Restrict embedding model compilation (if low memory)
+EXLA_TARGET=host
+```
 
-## Acknowledgments
+### Production Setup
 
-- Built with [Phoenix Framework](https://phoenixframework.org/)
-- Embeddings via [Bumblebee](https://github.com/elixir-nx/bumblebee)
-- Vector search via [pgvector](https://github.com/pgvector/pgvector)
-- Inspired by [o16g manifesto](https://o16g.com/)
+```bash
+# Install dependencies for production
+MIX_ENV=prod mix deps.get --only prod
 
-## Support
+# Compile assets
+MIX_ENV=prod mix assets.deploy
 
-- 📖 Documentation: [docs/](docs/)
-- 🐛 Issues: [GitHub Issues](https://github.com/...)
-- 💬 Discussions: [GitHub Discussions](https://github.com/...)
+# Run migrations
+MIX_ENV=prod mix ecto.migrate
+
+# Start in production mode
+MIX_ENV=prod mix phx.server
+```
+
+### Docker (TODO)
+
+A Dockerfile and docker-compose.yml are planned for easier deployment.
+
+##  Contributing
+
+### Project Guidelines
+
+See [AGENTS.md](AGENTS.md) for full development guidelines.
+
+Key points:
+- Use `mix precommit` before committing
+- Follow Phoenix 1.8 conventions
+- Add tests for new features
+- Update documentation
+
+### Adding a New Knowledge Type
+
+1. Create schema in `lib/context_engineering/contexts/your_type/`
+2. Add CRUD functions to `Knowledge` module
+3. Add search support in `SearchService`
+4. Add bundling support in `BundlerService`
+5. Create migration for new table
+6. Add Mix task for CLI creation
+7. Update API controller
+
+##  License
+
+Copyright  2024. All rights reserved.
+
+##  Acknowledgments
+
+- **Phoenix Framework** - Excellent web framework
+- **Bumblebee** - Local ML models in Elixir
+- **pgvector** - Efficient vector search in PostgreSQL
+- **sentence-transformers** - High-quality embedding models
+
+##  Contact
+
+For questions or support, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ for the AI agent era**
+**Built with Elixir and Phoenix**

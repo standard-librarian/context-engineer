@@ -52,7 +52,9 @@ defmodule ContextEngineering.Events.LogParser do
     |> String.slice(0..120)
   end
 
-  defp map_level_to_severity(level) when level in ["CRITICAL", "FATAL", "PANIC", "critical", "fatal", "panic"], do: "critical"
+  defp map_level_to_severity(level)
+       when level in ["CRITICAL", "FATAL", "PANIC", "critical", "fatal", "panic"], do: "critical"
+
   defp map_level_to_severity(level) when level in ["ERROR", "error"], do: "high"
   defp map_level_to_severity(_), do: "medium"
 end

@@ -92,13 +92,13 @@ defmodule ContextEngineering.Services.BundlerServiceTest do
 
     # Should find the PostgreSQL ADR
     assert Enum.any?(bundle.key_decisions, fn item ->
-      String.contains?(item.title || "", "PostgreSQL")
-    end)
+             String.contains?(item.title || "", "PostgreSQL")
+           end)
 
     # Should find the connection pool failure
     assert Enum.any?(bundle.known_issues, fn item ->
-      String.contains?(item.title || "", "Connection Pool")
-    end)
+             String.contains?(item.title || "", "Connection Pool")
+           end)
   end
 
   test "respects domain filtering" do

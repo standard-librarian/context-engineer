@@ -4,8 +4,16 @@ defmodule ContextEngineering.Contexts.Snapshots.Snapshot do
 
   @derive {Jason.Encoder,
            only: [
-             :id, :commit_hash, :author, :message, :date, :tags, :status,
-             :access_count_30d, :inserted_at, :updated_at
+             :id,
+             :commit_hash,
+             :author,
+             :message,
+             :date,
+             :tags,
+             :status,
+             :access_count_30d,
+             :inserted_at,
+             :updated_at
            ]}
 
   @primary_key {:id, :string, autogenerate: false}
