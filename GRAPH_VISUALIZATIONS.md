@@ -30,10 +30,10 @@ A professional knowledge graph visualization featuring:
 - **Color Palette**: Dark background (`#1e1e1e`), purple accent (`#7c3aed`), subtle grays
 - **Typography**: System fonts (-apple-system, BlinkMacSystemFont, Segoe UI)
 - **Effects**: Smooth node glow, collision detection, physics-based layout
-- **Library**: react-force-graph-2d with WebGL renderer
+- **Library**: react-force-graph-2d with Canvas rendering
 
 **Features**:
-- **High Performance**: WebGL-based rendering for hundreds of nodes at 60fps
+- **High Performance**: Canvas-based rendering for hundreds of nodes at 60fps
 - **Physics Controls**: 
   - Adjustable repulsion force (node separation)
   - Configurable link distance
@@ -65,7 +65,7 @@ A professional knowledge graph visualization featuring:
   - Labels appear on zoom or when highlighted
 
 **Why Obsidian-style?**
-This visualization replicates the popular "floating nodes" aesthetic from Obsidian.md, using force-directed physics to create an organic, intuitive layout. It's optimized for exploring knowledge graphs and understanding relationships between concepts.
+This visualization replicates the popular "floating nodes" aesthetic from Obsidian.md, using force-directed physics to create an organic, intuitive layout. Custom Canvas rendering provides efficient drawing for hundreds of nodes while maintaining smooth interactions.
 
 ---
 
@@ -134,10 +134,10 @@ Choose the style that best fits your use case:
 - **Google Fonts**: Distinctive typography
 
 ### Obsidian Graph
-- **react-force-graph-2d**: High-performance WebGL force-directed layout
+- **react-force-graph-2d**: High-performance force-directed layout
 - **React 18**: Component-based UI
 - **D3-force v3**: Physics simulation engine
-- **HTML5 Canvas**: Efficient rendering
+- **HTML5 Canvas**: Custom node/link rendering with ctx API
 
 ### Backend
 - **Phoenix/Elixir**: Backend API serving graph data
@@ -149,7 +149,7 @@ Choose the style that best fits your use case:
 
 | Feature | Retro Terminal | Obsidian Graph |
 |---------|---------------|----------------|
-| Rendering | SVG | Canvas (WebGL) |
+| Rendering | SVG | Canvas (2D Context) |
 | Recommended Max Nodes | 300 | 500+ |
 | FPS Target | 60fps | 60fps |
 | Mobile Support | Good | Excellent |

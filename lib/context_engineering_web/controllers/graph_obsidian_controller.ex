@@ -427,7 +427,7 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
 
       <script type="module">
         import React from 'react';
-        import ReactDOM from 'react-dom/client';
+        import { createRoot } from 'react-dom/client';
         import ForceGraph2D from 'react-force-graph-2d';
 
         // Type colors matching Obsidian's aesthetic
@@ -457,17 +457,7 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
           }
         }
 
-        // Fetch related nodes for a specific node
-        async function fetchRelatedNodes(nodeId, nodeType) {
-          try {
-            const response = await fetch(`/api/graph/related/${nodeId}?type=${nodeType}&depth=2`);
-            const data = await response.json();
-            return data.related || [];
-          } catch (error) {
-            console.error('Error fetching related nodes:', error);
-            return [];
-          }
-        }
+
 
         // Show info panel with node details
         async function showNodeInfo(node) {
@@ -967,7 +957,7 @@ defmodule ContextEngineeringWeb.GraphObsidianController do
 
         // Mount the app after D3 is loaded
         window.addEventListener('DOMContentLoaded', () => {
-          const root = ReactDOM.createRoot(document.getElementById('graph-container'));
+          const root = createRoot(document.getElementById('graph-container'));
           root.render(React.createElement(GraphApp));
         });
       </script>
