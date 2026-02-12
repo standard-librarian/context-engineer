@@ -43,5 +43,13 @@ defmodule ContextEngineeringWeb.Router do
 
     # Graph
     get "/graph/related/:id", GraphController, :related
+    get "/graph/export", GraphController, :export
+  end
+
+  # Browser routes for graph visualization
+  scope "/", ContextEngineeringWeb do
+    get "/graph", GraphController, :visualize
+    get "/graph/obsidian", GraphObsidianController, :visualize
+    get "/graph/excalidraw", GraphExcalidrawController, :visualize
   end
 end
