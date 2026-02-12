@@ -148,10 +148,16 @@ defmodule Mix.Tasks.Context.Graph do
     IO.puts("Opening browser to http://localhost:4000/graph")
     IO.puts("\nPress Ctrl+C twice to stop the server.\n")
 
-    # Start the Phoenix server
-    Mix.Task.run("phx.server")
+    Task.start(fn ->
+      Process.sleep(1000)
+      open_browser()
+    end)
 
-    # Try to open browser (platform-specific)
+    # Start the Phoenix server (blocks)
+    Mix.Task.run("phx.server")
+  end
+
+  defp open_browser do
     case :os.type() do
       {:unix, :darwin} ->
         System.cmd("open", ["http://localhost:4000/graph"])
@@ -165,5 +171,6 @@ defmodule Mix.Tasks.Context.Graph do
       _ ->
         IO.puts("Please open http://localhost:4000/graph in your browser")
     end
+  end
   end
 end
