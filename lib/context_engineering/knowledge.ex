@@ -1,7 +1,65 @@
 defmodule ContextEngineering.Knowledge do
   @moduledoc """
-  Shared context module for managing organizational knowledge.
-  Extracts business logic from controllers so it can be reused by Mix tasks and other callers.
+  The main context for managing organizational knowledge and context records.
+
+  This module provides the public API for creating, updating, and querying all types
+  of organizational knowledge including:
+
+  - **ADRs** (Architecture Decision Records): Why technical decisions were made
+  - **Failures**: What went wrong and how it was resolved
+  - **Meetings**: What was discussed and decided in meetings
+  - **Snapshots**: Point-in-time captures of the codebase state
+
+  ## Key Features
+
+  - **Automatic embedding generation**: All text content is converted to vector embeddings
+    using local ML models (via `EmbeddingService`) for semantic search
+
+  - **Automatic relationship linking**: Cross-references between items (like "see ADR-001")
+    are automatically detected and stored as graph relationships
+
+  - **Tag extraction**: Keywords are automatically extracted from content and stored as tags
+
+  - **Sequential IDs**: Each type gets unique sequential identifiers (ADR-001, FAIL-042, etc.)
+
+  ## Usage
+
+  Create an ADR:
+
+      iex> params = %{
+      ...>   "title" => "Use PostgreSQL for persistence",
+      ...>   "decision" => "We will use PostgreSQL as our primary database",
+      ...>   "context" => "We need ACID guarantees and relational data",
+      ...>   "status" => "accepted"
+      ...> }
+      iex> {:ok, adr} = Knowledge.create_adr(params)
+
+  Query across all knowledge types:
+
+      iex> Knowledge.list_all_items(limit: 10)
+      [%{type: "adr", item: %ADR{...}}, %{type: "failure", item: %Failure{...}}]
+
+  Get the next available ID:
+
+      iex> Knowledge.next_id("adr")
+      "ADR-005"
+
+  ## Architecture
+
+  This module serves as a **facade** over the individual context modules:
+  - `ContextEngineering.Contexts.ADRs.ADR`
+  - `ContextEngineering.Contexts.Failures.Failure`
+  - `ContextEngineering.Contexts.Meetings.Meeting`
+  - `ContextEngineering.Contexts.Snapshots.Snapshot`
+
+  It coordinates with supporting services:
+  - `EmbeddingService` - generates ML embeddings for semantic search
+  - `Graph` - manages relationships between knowledge items
+
+  This design allows:
+  - Controllers and API endpoints to use a single, consistent interface
+  - Mix tasks (CLI commands) to reuse the same business logic
+  - Background workers to access knowledge without HTTP overhead
   """
 
   import Ecto.Query
@@ -16,6 +74,42 @@ defmodule ContextEngineering.Knowledge do
 
   # --- ADR ---
 
+  @doc """
+  Creates a new Architecture Decision Record (ADR).
+
+  Automatically:
+  - Generates vector embeddings for semantic search
+  - Extracts and assigns tags from the content
+  - Creates graph relationships to referenced items (e.g., "see ADR-001")
+
+  ## Parameters
+
+    - `params` - Map with the following keys:
+      - `"title"` (required) - Short title of the decision
+      - `"decision"` (required) - The decision that was made
+      - `"context"` (required) - Background and reasoning
+      - `"consequences"` - Expected outcomes (optional)
+      - `"status"` - One of "proposed", "accepted", "deprecated", "superseded" (default: "proposed")
+      - `"tags"` - List of tag strings (optional, auto-extracted if not provided)
+      - `"created_date"` - Date string (optional, defaults to today)
+
+  ## Returns
+
+    - `{:ok, %ADR{}}` on success
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> params = %{
+      ...>   "title" => "Use PostgreSQL for persistence",
+      ...>   "decision" => "We will use PostgreSQL as our primary database",
+      ...>   "context" => "We need ACID guarantees and relational data modeling"
+      ...> }
+      iex> {:ok, adr} = Knowledge.create_adr(params)
+      iex> adr.id
+      "ADR-001"
+
+  """
   def create_adr(params) do
     params = maybe_add_tags(params)
 
@@ -39,9 +133,31 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Updates an existing ADR.
+
+  ## Parameters
+
+    - `id` - The ADR ID (e.g., "ADR-001")
+    - `params` - Map of fields to update (same keys as `create_adr/1`)
+
+  ## Returns
+
+    - `{:ok, %ADR{}}` on success
+    - `{:error, :not_found}` if ADR doesn't exist
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> Knowledge.update_adr("ADR-001", %{"status" => "accepted"})
+      {:ok, %ADR{id: "ADR-001", status: "accepted"}}
+
+  """
   def update_adr(id, params) do
     case Repo.get(ADR, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       adr ->
         changeset = ADR.changeset(adr, params)
 
@@ -52,6 +168,27 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Fetches a single ADR by ID.
+
+  ## Parameters
+
+    - `id` - The ADR ID (e.g., "ADR-001")
+
+  ## Returns
+
+    - `{:ok, %ADR{}}` if found
+    - `{:error, :not_found}` if not found
+
+  ## Examples
+
+      iex> Knowledge.get_adr("ADR-001")
+      {:ok, %ADR{id: "ADR-001", title: "Use PostgreSQL"}}
+
+      iex> Knowledge.get_adr("ADR-999")
+      {:error, :not_found}
+
+  """
   def get_adr(id) do
     case Repo.get(ADR, id) do
       nil -> {:error, :not_found}
@@ -59,6 +196,27 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists all ADRs, optionally filtered by status.
+
+  ## Parameters
+
+    - `params` - Map with optional keys:
+      - `"status"` - Filter by status: "active", "proposed", "accepted", "deprecated", "superseded" (default: "active")
+
+  ## Returns
+
+    - List of `%ADR{}` structs, ordered by creation date (newest first)
+
+  ## Examples
+
+      iex> Knowledge.list_adrs()
+      [%ADR{id: "ADR-003"}, %ADR{id: "ADR-002"}, %ADR{id: "ADR-001"}]
+
+      iex> Knowledge.list_adrs(%{"status" => "accepted"})
+      [%ADR{status: "accepted", ...}]
+
+  """
   def list_adrs(params \\ %{}) do
     status = Map.get(params, "status", "active")
 
@@ -68,6 +226,45 @@ defmodule ContextEngineering.Knowledge do
 
   # --- Failure ---
 
+  @doc """
+  Creates a new Failure record (incident/outage/bug report).
+
+  Automatically:
+  - Generates vector embeddings for semantic search
+  - Extracts and assigns tags from the content
+  - Creates graph relationships to referenced items
+
+  ## Parameters
+
+    - `params` - Map with the following keys:
+      - `"title"` (required) - Short description of the failure
+      - `"symptoms"` (required) - What users experienced
+      - `"root_cause"` (required) - Why it happened
+      - `"resolution"` (required) - How it was fixed
+      - `"severity"` - One of "low", "medium", "high", "critical" (default: "medium")
+      - `"status"` - One of "investigating", "resolved", "monitoring" (default: "investigating")
+      - `"tags"` - List of tag strings (optional, auto-extracted if not provided)
+      - `"occurred_at"` - DateTime string (optional, defaults to now)
+
+  ## Returns
+
+    - `{:ok, %Failure{}}` on success
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> params = %{
+      ...>   "title" => "Database connection pool exhausted",
+      ...>   "symptoms" => "API returning 504 timeouts",
+      ...>   "root_cause" => "Pool size too small for traffic spike",
+      ...>   "resolution" => "Increased pool size from 10 to 50",
+      ...>   "severity" => "high"
+      ...> }
+      iex> {:ok, failure} = Knowledge.create_failure(params)
+      iex> failure.id
+      "FAIL-001"
+
+  """
   def create_failure(params) do
     params = maybe_add_tags(params)
 
@@ -91,9 +288,31 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Updates an existing Failure record.
+
+  ## Parameters
+
+    - `id` - The Failure ID (e.g., "FAIL-001")
+    - `params` - Map of fields to update (same keys as `create_failure/1`)
+
+  ## Returns
+
+    - `{:ok, %Failure{}}` on success
+    - `{:error, :not_found}` if Failure doesn't exist
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> Knowledge.update_failure("FAIL-001", %{"status" => "resolved"})
+      {:ok, %Failure{id: "FAIL-001", status: "resolved"}}
+
+  """
   def update_failure(id, params) do
     case Repo.get(Failure, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       failure ->
         changeset = Failure.changeset(failure, params)
 
@@ -104,6 +323,24 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Fetches a single Failure by ID.
+
+  ## Parameters
+
+    - `id` - The Failure ID (e.g., "FAIL-001")
+
+  ## Returns
+
+    - `{:ok, %Failure{}}` if found
+    - `{:error, :not_found}` if not found
+
+  ## Examples
+
+      iex> Knowledge.get_failure("FAIL-001")
+      {:ok, %Failure{id: "FAIL-001", title: "Database timeout"}}
+
+  """
   def get_failure(id) do
     case Repo.get(Failure, id) do
       nil -> {:error, :not_found}
@@ -111,6 +348,27 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists all Failures, optionally filtered by status.
+
+  ## Parameters
+
+    - `params` - Map with optional keys:
+      - `"status"` - Filter by status: "investigating", "resolved", "monitoring" (default: "resolved")
+
+  ## Returns
+
+    - List of `%Failure{}` structs, ordered by incident date (newest first)
+
+  ## Examples
+
+      iex> Knowledge.list_failures()
+      [%Failure{id: "FAIL-003"}, %Failure{id: "FAIL-002"}]
+
+      iex> Knowledge.list_failures(%{"status" => "investigating"})
+      [%Failure{status: "investigating", ...}]
+
+  """
   def list_failures(params \\ %{}) do
     status = Map.get(params, "status", "resolved")
 
@@ -120,6 +378,43 @@ defmodule ContextEngineering.Knowledge do
 
   # --- Meeting ---
 
+  @doc """
+  Creates a new Meeting record.
+
+  Automatically:
+  - Generates vector embeddings for semantic search
+  - Extracts and assigns tags from the content
+  - Stores decisions as structured data (JSON)
+
+  ## Parameters
+
+    - `params` - Map with the following keys:
+      - `"meeting_title"` (required) - Title of the meeting
+      - `"decisions"` (required) - Map or JSON string of decisions made
+      - `"attendees"` - List of attendee names (optional)
+      - `"meeting_date"` - Date string (optional, defaults to today)
+      - `"tags"` - List of tag strings (optional, auto-extracted if not provided)
+
+  ## Returns
+
+    - `{:ok, %Meeting{}}` on success
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> params = %{
+      ...>   "meeting_title" => "Q1 Architecture Review",
+      ...>   "decisions" => %{
+      ...>     "database" => "Stick with PostgreSQL",
+      ...>     "caching" => "Add Redis for sessions"
+      ...>   },
+      ...>   "attendees" => ["Alice", "Bob", "Charlie"]
+      ...> }
+      iex> {:ok, meeting} = Knowledge.create_meeting(params)
+      iex> meeting.id
+      "MEET-001"
+
+  """
   def create_meeting(params) do
     params = maybe_add_tags(params)
 
@@ -145,9 +440,26 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Updates an existing Meeting record.
+
+  ## Parameters
+
+    - `id` - The Meeting ID (e.g., "MEET-001")
+    - `params` - Map of fields to update (same keys as `create_meeting/1`)
+
+  ## Returns
+
+    - `{:ok, %Meeting{}}` on success
+    - `{:error, :not_found}` if Meeting doesn't exist
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  """
   def update_meeting(id, params) do
     case Repo.get(Meeting, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       meeting ->
         changeset = Meeting.changeset(meeting, params)
 
@@ -158,6 +470,19 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Fetches a single Meeting by ID.
+
+  ## Parameters
+
+    - `id` - The Meeting ID (e.g., "MEET-001")
+
+  ## Returns
+
+    - `{:ok, %Meeting{}}` if found
+    - `{:error, :not_found}` if not found
+
+  """
   def get_meeting(id) do
     case Repo.get(Meeting, id) do
       nil -> {:error, :not_found}
@@ -165,6 +490,23 @@ defmodule ContextEngineering.Knowledge do
     end
   end
 
+  @doc """
+  Lists all Meetings, ordered by meeting date.
+
+  ## Parameters
+
+    - `params` - Map (reserved for future filtering options)
+
+  ## Returns
+
+    - List of `%Meeting{}` structs, ordered by meeting date (newest first)
+
+  ## Examples
+
+      iex> Knowledge.list_meetings()
+      [%Meeting{id: "MEET-003"}, %Meeting{id: "MEET-002"}]
+
+  """
   def list_meetings(params \\ %{}) do
     status = Map.get(params, "status", "active")
 
@@ -209,9 +551,11 @@ defmodule ContextEngineering.Knowledge do
   # --- Auto Tags ---
 
   @tag_keywords %{
-    "database" => ~w(database db postgresql postgres mysql sql query migration schema table index),
+    "database" =>
+      ~w(database db postgresql postgres mysql sql query migration schema table index),
     "performance" => ~w(performance slow latency throughput bottleneck optimization cache load),
-    "infrastructure" => ~w(infrastructure deploy deployment server container docker kubernetes k8s aws cloud),
+    "infrastructure" =>
+      ~w(infrastructure deploy deployment server container docker kubernetes k8s aws cloud),
     "security" => ~w(security auth authentication authorization vulnerability xss csrf injection),
     "frontend" => ~w(frontend ui ux component react liveview template css javascript browser),
     "api" => ~w(api endpoint rest graphql http request response json),
@@ -241,7 +585,30 @@ defmodule ContextEngineering.Knowledge do
   # --- Timeline ---
 
   @doc """
-  Returns all items in a date range, sorted chronologically.
+  Returns all knowledge items within a date range, sorted chronologically.
+
+  Useful for generating reports, viewing activity history, or analyzing decision patterns over time.
+
+  ## Parameters
+
+    - `from_date` - Start date (Date struct or parseable date string)
+    - `to_date` - End date (Date struct or parseable date string)
+
+  ## Returns
+
+    - List of maps with keys:
+      - `:type` - String: "adr", "failure", "meeting", or "snapshot"
+      - `:item` - The struct
+      - `:date` - The relevant date for this item (created_date, incident_date, meeting_date, or commit_date)
+
+  ## Examples
+
+      iex> Knowledge.timeline(~D[2024-01-01], ~D[2024-01-31])
+      [
+        %{type: "adr", item: %ADR{}, date: ~D[2024-01-15]},
+        %{type: "failure", item: %Failure{}, date: ~D[2024-01-10]}
+      ]
+
   """
   def timeline(from_date, to_date) do
     adrs =
@@ -251,7 +618,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn a ->
-        %{id: a.id, type: "adr", title: a.title, date: a.created_date, tags: a.tags, status: a.status}
+        %{
+          id: a.id,
+          type: "adr",
+          title: a.title,
+          date: a.created_date,
+          tags: a.tags,
+          status: a.status
+        }
       end)
 
     failures =
@@ -261,7 +635,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn f ->
-        %{id: f.id, type: "failure", title: f.title, date: f.incident_date, tags: f.tags, status: f.status}
+        %{
+          id: f.id,
+          type: "failure",
+          title: f.title,
+          date: f.incident_date,
+          tags: f.tags,
+          status: f.status
+        }
       end)
 
     meetings =
@@ -271,7 +652,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn m ->
-        %{id: m.id, type: "meeting", title: m.meeting_title, date: m.date, tags: m.tags, status: m.status}
+        %{
+          id: m.id,
+          type: "meeting",
+          title: m.meeting_title,
+          date: m.date,
+          tags: m.tags,
+          status: m.status
+        }
       end)
 
     snapshots =
@@ -281,7 +669,14 @@ defmodule ContextEngineering.Knowledge do
       )
       |> Repo.all()
       |> Enum.map(fn s ->
-        %{id: s.id, type: "snapshot", title: s.message, date: s.date, tags: s.tags, status: s.status}
+        %{
+          id: s.id,
+          type: "snapshot",
+          title: s.message,
+          date: s.date,
+          tags: s.tags,
+          status: s.status
+        }
       end)
 
     (adrs ++ failures ++ meetings ++ snapshots)
@@ -292,7 +687,37 @@ defmodule ContextEngineering.Knowledge do
 
   @doc """
   Creates a Snapshot record from git commit data.
-  Expects a map with "commit_hash", "author", "message", and optionally "date".
+
+  Captures the state of the codebase at a specific commit for historical reference.
+  Automatically generates embeddings for the commit message.
+
+  ## Parameters
+
+    - `params` - Map with the following keys:
+      - `"commit_hash"` (required) - Git commit SHA
+      - `"author"` (required) - Commit author name
+      - `"message"` (required) - Commit message
+      - `"date"` - Commit date (optional, defaults to now)
+      - `"branch"` - Git branch name (optional)
+      - `"tags"` - List of tag strings (optional)
+
+  ## Returns
+
+    - `{:ok, %Snapshot{}}` on success
+    - `{:error, %Ecto.Changeset{}}` on validation failure
+
+  ## Examples
+
+      iex> params = %{
+      ...>   "commit_hash" => "a1b2c3d4",
+      ...>   "author" => "Alice",
+      ...>   "message" => "Add user authentication system",
+      ...>   "branch" => "main"
+      ...> }
+      iex> {:ok, snapshot} = Knowledge.create_snapshot(params)
+      iex> snapshot.id
+      "SNAP-001"
+
   """
   def create_snapshot(params) do
     id = next_id("snapshot")
@@ -342,7 +767,9 @@ defmodule ContextEngineering.Knowledge do
 
   def update_snapshot(id, params) do
     case Repo.get(Snapshot, id) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       snapshot ->
         changeset = Snapshot.changeset(snapshot, params)
 
@@ -365,6 +792,7 @@ defmodule ContextEngineering.Knowledge do
 
   # --- Private helpers ---
 
+  @doc false
   defp maybe_add_tags(params) do
     case Map.get(params, "tags") do
       nil ->

@@ -13,7 +13,9 @@ defmodule ContextEngineeringWeb.ContextController do
     max_tokens = Map.get(params, "max_tokens", 4000)
     domains = Map.get(params, "domains", [])
 
-    {:ok, bundle} = BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
+    {:ok, bundle} =
+      BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
+
     json(conn, bundle)
   end
 

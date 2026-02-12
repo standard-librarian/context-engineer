@@ -35,7 +35,8 @@ defmodule Mix.Tasks.Context.Query do
 
     alias ContextEngineering.Services.BundlerService
 
-    {:ok, bundle} = BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
+    {:ok, bundle} =
+      BundlerService.bundle_context(query_text, max_tokens: max_tokens, domains: domains)
 
     Mix.shell().info("=== Context Bundle (#{bundle.total_items} items) ===\n")
 

@@ -18,8 +18,15 @@ defmodule Mix.Tasks.Context.Failure do
 
     {opts, _, _} =
       OptionParser.parse(args,
-        strict: [title: :string, root_cause: :string, severity: :string, tags: :string,
-                 symptoms: :string, impact: :string, resolution: :string]
+        strict: [
+          title: :string,
+          root_cause: :string,
+          severity: :string,
+          tags: :string,
+          symptoms: :string,
+          impact: :string,
+          resolution: :string
+        ]
       )
 
     title = opts[:title] || Mix.raise("--title is required")

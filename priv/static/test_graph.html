@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graph Import Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #1e1e1e;
+      color: #fff;
+      padding: 20px;
+    }
+    #status {
+      margin-bottom: 20px;
+    }
+    .success { color: #10b981; }
+    .error { color: #ef4444; }
+    .info { color: #3b82f6; }
+    #graph-container {
+      width: 100%;
+      height: 500px;
+      background: #000;
+      border: 1px solid #3a3a3a;
+    }
+  </style>
+</head>
+<body>
+  <h1>React Force Graph Import Test</h1>
+  <div id="status">
+    <div class="info">⏳ Loading modules...</div>
+  </div>
+  <div id="graph-container"></div>
+
+  <!-- Load D3 first -->
+  <script src="https://d3js.org/d3-force.v3.min.js"></script>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom": "https://esm.sh/react-dom@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "react-force-graph-2d": "https://esm.sh/react-force-graph-2d@1.25.4?deps=react@18.2.0,react-dom@18.2.0"
+    }
+  }
+  </script>
+
+  <script type="module">
+    const statusDiv = document.getElementById('status');
+
+    function addStatus(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = type;
+      div.textContent = message;
+      statusDiv.appendChild(div);
+    }
+
+    try {
+      addStatus('✓ D3 loaded: ' + (typeof d3 !== 'undefined'), 'd3' in window ? 'success' : 'error');
+
+      // Import React
+      const React = await import('react');
+      addStatus('✓ React imported successfully', 'success');
+
+      // Import ReactDOM
+      const ReactDOM = await import('react-dom/client');
+      addStatus('✓ ReactDOM/client imported successfully', 'success');
+
+      // Import ForceGraph2D
+      const ForceGraph2D = await import('react-force-graph-2d');
+      addStatus('✓ react-force-graph-2d imported successfully', 'success');
+
+      // Test data
+      const graphData = {
+        nodes: [
+          { id: 'A', name: 'Node A', color: '#7c3aed' },
+          { id: 'B', name: 'Node B', color: '#3b82f6' },
+          { id: 'C', name: 'Node C', color: '#10b981' },
+          { id: 'D', name: 'Node D', color: '#ef4444' }
+        ],
+        links: [
+          { source: 'A', target: 'B' },
+          { source: 'B', target: 'C' },
+          { source: 'C', target: 'D' },
+          { source: 'D', target: 'A' }
+        ]
+      };
+
+      // Create simple component
+      class TestGraph extends React.Component {
+        render() {
+          return React.createElement(ForceGraph2D.default, {
+            graphData: graphData,
+            width: window.innerWidth - 40,
+            height: 480,
+            backgroundColor: '#000000',
+            nodeLabel: 'name',
+            nodeColor: node => node.color,
+            nodeRelSize: 8,
+            linkColor: () => 'rgba(124, 58, 237, 0.4)',
+            linkWidth: 2,
+            d3AlphaDecay: 0.02,
+            d3VelocityDecay: 0.3
+          });
+        }
+      }
+
+      // Mount the component
+      const container = document.getElementById('graph-container');
+      const root = ReactDOM.createRoot(container);
+      root.render(React.createElement(TestGraph));
+
+      addStatus('✓ Graph rendered successfully!', 'success');
+      addStatus('🎉 All imports working correctly!', 'success');
+
+    } catch (error) {
+      addStatus('✗ Error: ' + error.message, 'error');
+      console.error('Detailed error:', error);
+    }
+  </script>
+</body>
+</html>
