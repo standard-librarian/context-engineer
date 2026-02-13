@@ -1,0 +1,1464 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Context Engineering - The o16g Implementation for 4Sale</title>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reset.css"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/black.css"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/monokai.css"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --accent: #00ff9f;
+                --accent-4sale: #0ea5e9;
+                --text-primary: #ffffff;
+                --text-secondary: #999999;
+                --bg-dark: #000000;
+            }
+
+            .reveal {
+                font-family:
+                    "Inter",
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    sans-serif;
+                background: var(--bg-dark);
+                font-weight: 300;
+                font-size: 28px;
+                color: var(--text-primary);
+            }
+
+            .reveal h1,
+            .reveal h2,
+            .reveal h3,
+            .reveal h4 {
+                text-transform: none;
+                font-weight: 600;
+                line-height: 1.2;
+                letter-spacing: -0.02em;
+                color: var(--text-primary);
+                margin: 0 0 0.8em 0;
+            }
+
+            .reveal h1 {
+                font-size: 2.5em;
+                font-weight: 700;
+                line-height: 1.1;
+                margin-bottom: 0.5em;
+            }
+
+            .reveal h2 {
+                font-size: 1.8em;
+                font-weight: 600;
+                margin-bottom: 0.5em;
+            }
+
+            .reveal h3 {
+                font-size: 1.4em;
+                font-weight: 600;
+                color: var(--accent);
+                margin-bottom: 0.5em;
+                text-align: center !important;
+                display: block;
+                width: 100%;
+            }
+
+            .reveal h4 {
+                font-size: 1.2em;
+                font-weight: 500;
+                margin-bottom: 0.5em;
+            }
+
+            .reveal section {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 2rem;
+                text-align: center !important;
+            }
+
+            .reveal section h1,
+            .reveal section h2,
+            .reveal section h3,
+            .reveal section h4,
+            .reveal section p,
+            .reveal section blockquote,
+            .reveal section .principle-description,
+            .reveal section .subtitle {
+                text-align: center !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+
+            .reveal p {
+                margin: 0 0 0.8em 0;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                font-size: 1em;
+                text-align: center !important;
+            }
+
+            .reveal strong {
+                color: var(--accent);
+                font-weight: 600;
+            }
+
+            .reveal em {
+                color: var(--text-primary);
+                font-style: italic;
+            }
+
+            .reveal blockquote {
+                background: none;
+                border: none;
+                border-left: none;
+                padding: 1rem 1.5rem;
+                margin: 1rem auto;
+                font-size: 1.2em;
+                font-weight: 400;
+                line-height: 1.5;
+                box-shadow: none;
+                font-style: italic;
+                text-align: center !important;
+                max-width: 900px;
+                width: 100%;
+            }
+
+            .reveal ul,
+            .reveal ol {
+                margin: 0.5em 0;
+                text-align: center;
+                max-width: 700px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .reveal ul {
+                list-style: none;
+                padding: 0;
+            }
+
+            .reveal ul li {
+                padding-left: 0;
+                position: relative;
+                margin-bottom: 0.5em;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                font-size: 0.95em;
+                text-align: center;
+                list-style-position: inside;
+            }
+
+            .reveal ul li::before {
+                content: "";
+                display: none;
+            }
+
+            .reveal ol {
+                padding-left: 2em;
+            }
+
+            .reveal ol li {
+                margin-bottom: 0.5em;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                font-size: 0.95em;
+            }
+
+            .reveal code {
+                background: #1a1a1a;
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+                font-size: 1em;
+            }
+
+            .reveal pre {
+                background: #0a0a0a;
+                border: 1px solid var(--accent);
+                padding: 1rem;
+                margin: 1rem auto;
+                font-size: 0.65em;
+                max-width: 95%;
+                box-shadow: 0 4px 20px rgba(0, 255, 159, 0.1);
+                border-radius: 8px;
+                overflow: hidden !important;
+            }
+
+            .reveal pre code {
+                background: none;
+                padding: 0;
+                line-height: 1.4;
+                font-size: 1em;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                display: block;
+                overflow: hidden !important;
+            }
+
+            .section-divider {
+                font-size: 0.75em;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.15em;
+                margin: 0 auto 1em auto !important;
+                font-weight: 600;
+                text-align: center !important;
+                display: block !important;
+                width: 100% !important;
+            }
+
+            .subtitle {
+                font-size: 0.5em;
+                color: var(--text-secondary);
+                font-weight: 400;
+                margin-top: 0.3em;
+                text-align: center !important;
+                display: block !important;
+                width: 100% !important;
+            }
+
+            .principle-number {
+                display: block !important;
+                background: var(--accent);
+                color: var(--bg-dark);
+                padding: 0.2em 0.6em;
+                border-radius: 3px;
+                font-weight: 700;
+                font-size: 0.9em;
+                margin: 0 auto 0.3em auto !important;
+                text-align: center !important;
+                width: fit-content !important;
+            }
+
+            .principle-title {
+                font-size: 1.3em;
+                font-weight: 600;
+                color: var(--accent);
+                margin-bottom: 0.5em;
+                text-align: center !important;
+                display: block;
+                width: 100%;
+            }
+
+            .principle-description {
+                font-size: 0.95em;
+                line-height: 1.5;
+                color: var(--text-secondary);
+                max-width: 900px !important;
+                margin: 0 auto !important;
+                text-align: center !important;
+                width: auto !important;
+                display: block !important;
+            }
+
+            .split {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 3rem;
+                text-align: left;
+                max-width: 1000px;
+                margin: 0 auto;
+            }
+
+            .split h3 {
+                text-align: center;
+                margin-bottom: 1em;
+            }
+
+            .stats {
+                display: flex;
+                justify-content: center;
+                gap: 2rem;
+                margin: 1rem 0;
+            }
+
+            .stat {
+                text-align: center;
+            }
+
+            .stat-number {
+                font-size: 2.5em;
+                font-weight: 700;
+                color: var(--accent);
+                line-height: 1;
+            }
+
+            .stat-label {
+                font-size: 0.85em;
+                color: var(--text-secondary);
+                margin-top: 0.3em;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .comparison {
+                max-width: 900px;
+                margin: 1rem auto;
+                text-align: center;
+            }
+
+            .comparison-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1.5rem;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid #222;
+            }
+
+            .comparison-row:last-child {
+                border-bottom: none;
+            }
+
+            .comparison-label {
+                font-weight: 600;
+                color: var(--text-primary);
+                text-align: left;
+            }
+
+            .comparison-value {
+                color: var(--text-secondary);
+                font-size: 0.95em;
+                text-align: left;
+            }
+
+            .media-box {
+                border: 2px solid #333;
+                padding: 1.5rem;
+                margin: 1rem auto;
+                max-width: 900px;
+                background: #0a0a0a;
+            }
+
+            .media-label {
+                font-size: 0.75em;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                margin-bottom: 0.5em;
+            }
+
+            .media-description {
+                color: var(--text-secondary);
+                font-size: 0.9em;
+                line-height: 1.5;
+                text-align: center !important;
+            }
+
+            .media-description p {
+                text-align: center !important;
+            }
+
+            .timeline {
+                max-width: 700px;
+                margin: 1rem auto;
+                text-align: center;
+            }
+
+            .timeline-item {
+                margin-bottom: 1rem;
+                padding: 0 1rem;
+                border-left: none;
+                position: relative;
+                text-align: center;
+            }
+
+            .timeline-item::before {
+                display: none;
+            }
+
+            .timeline-label {
+                font-weight: 600;
+                color: var(--accent);
+                font-size: 0.9em;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.3em;
+                display: block;
+            }
+
+            .timeline-content {
+                color: var(--text-secondary);
+                font-size: 0.95em;
+                line-height: 1.5;
+                margin-bottom: 0.8rem;
+            }
+
+            .callout {
+                background: #0a0a0a;
+                border-left: 3px solid var(--accent);
+                padding: 1rem;
+                margin: 1rem auto;
+                max-width: 800px;
+                text-align: center;
+            }
+
+            .callout-title {
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 0.3em;
+                font-size: 1.1em;
+            }
+
+            .callout p {
+                color: var(--text-secondary);
+                margin: 0;
+                text-align: center;
+                font-size: 0.95em;
+            }
+
+            .arch-stack {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                max-width: 600px;
+                margin: 1rem auto;
+            }
+
+            .arch-box {
+                border: 2px solid var(--accent);
+                padding: 0.8rem;
+                text-align: center;
+                font-size: 0.9em;
+            }
+
+            .arch-arrow {
+                text-align: center;
+                color: var(--accent);
+                font-size: 1.2em;
+            }
+
+            .reveal .slides section .fragment.fade-in {
+                opacity: 0;
+            }
+
+            .reveal .slides section .fragment.fade-in.visible {
+                opacity: 1;
+            }
+
+            .text-left {
+                text-align: left !important;
+            }
+
+            .text-center {
+                text-align: center !important;
+            }
+
+            .mb-2 {
+                margin-bottom: 1rem !important;
+            }
+
+            .mt-2 {
+                margin-top: 1rem !important;
+            }
+
+            .max-width-narrow {
+                max-width: 600px !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                text-align: center !important;
+                width: auto !important;
+                display: block !important;
+            }
+
+            .max-width-wide {
+                max-width: 900px !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                text-align: center !important;
+                width: auto !important;
+                display: block !important;
+            }
+
+            .reveal {
+                background: #000;
+            }
+
+            /* 4Sale-specific slides with blue accent */
+            .for4sale .section-divider {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale h2,
+            .for4sale h3,
+            .for4sale h4 {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale strong {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale .principle-number {
+                background: var(--accent-4sale) !important;
+            }
+
+            .for4sale .principle-title {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale .stat-number {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale .timeline-label {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale .comparison-label {
+                color: var(--accent-4sale) !important;
+            }
+
+            .for4sale pre {
+                border: 1px solid var(--accent-4sale) !important;
+                box-shadow: 0 4px 20px rgba(14, 165, 233, 0.1) !important;
+            }
+
+            #bg-video {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                min-width: 100%;
+                min-height: 100%;
+                width: auto;
+                height: auto;
+                transform: translate(-50%, -50%);
+                z-index: -1;
+                opacity: 0.15;
+                filter: blur(2px);
+            }
+        </style>
+    </head>
+    <body>
+        <video id="bg-video" muted playsinline loop>
+            <source
+                src="https://cdn.coverr.co/videos/coverr-circuit-board-data-flow-9526/1080p.mp4"
+                type="video/mp4"
+            />
+        </video>
+        <div class="reveal">
+            <div class="slides">
+                <section style="text-align: center">
+                    <h1 style="text-align: center">Context Engineering</h1>
+                    <p class="subtitle" style="text-align: center">
+                        Implementing the o16g Manifesto at 4Sale
+                    </p>
+                    <p
+                        class="subtitle"
+                        style="margin-top: 2rem; font-size: 0.4em"
+                    >
+                        A personal tool for team adoption<br />
+                        Building organizational memory for the agentic era<br />
+                        2026 • Kuwait
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">The Problem</div>
+                    <h2 style="text-align: center">
+                        It was never about the code
+                    </h2>
+                    <p class="max-width-wide" style="text-align: center">
+                        We've entered the agentic era. AI can write code faster
+                        than any human. But there's a catastrophic problem:
+                        <strong>agents have no organizational memory</strong>.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">What AI Agents Cannot Do</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>
+                            Understand <strong>why</strong> we made past
+                            decisions
+                        </li>
+                        <li>Learn from our <strong>failures</strong></li>
+                        <li>
+                            Know our <strong>architecture constraints</strong>
+                        </li>
+                        <li>Remember <strong>team discussions</strong></li>
+                        <li>Avoid <strong>repeating mistakes</strong></li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center">
+                    <h2 style="text-align: center">A Real Example</h2>
+                    <div class="media-box" style="text-align: center">
+                        <p class="media-label">Scenario</p>
+                        <div class="media-description">
+                            <p><strong>Agent asked:</strong> Build REST API</p>
+                            <p>
+                                <strong>Agent suggests:</strong> "Use MongoDB
+                                for flexible schema"
+                            </p>
+                            <p>
+                                <strong>Reality:</strong> Team migrated to
+                                PostgreSQL previously
+                            </p>
+                            <p>
+                                <strong>Cost:</strong> Multiple days refactoring
+                                + database setup waste
+                            </p>
+                        </div>
+                    </div>
+                    <p class="mt-2">
+                        The agent had no access to relevant
+                        <strong>ADRs</strong> or
+                        <strong>failure records</strong>
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h2 style="text-align: center">Enter: o16g</h2>
+                    <blockquote style="text-align: center">
+                        "This is outcome engineering – o16g.<br />
+                        Beyond simply goals to delivery and fully understood
+                        <strong>impact</strong>."
+                    </blockquote>
+                    <p class="max-width-wide" style="text-align: center">
+                        A manifesto for the agentic era. Context Engineering
+                        implements <strong>key principles</strong> from o16g.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">06</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        No Wandering in the Dark
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        Never dispatch an agent without context. Map the
+                        territory before building. Every engineer and agent
+                        should instantly know: What's been tried? What failed?
+                        What succeeded?
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">08</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        Failures are Artifacts
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        Every failure is a gift to future teams. Opinions are
+                        conjecture; outcomes are data. Dissect the failure.
+                        Debug the decision, not just the code. Make failure
+                        impossible to repeat.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">11</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        All the Context, Everywhere
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        <strong>The core principle.</strong> Every decision,
+                        failure, and discussion must be accessible to every
+                        agent, every time, automatically. Agents cannot reason
+                        in a vacuum.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">14</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        Continuous Improvement
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        Repeating a mistake is a system failure. Automatically
+                        identify outdated context, low-quality docs, and
+                        knowledge gaps. Inoculate the system so the error never
+                        happens again.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">03</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        No Single Player Mode
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        Engineering is collaborative. Decisions hidden in
+                        individual minds or siloed tools are organizational
+                        debt. Foreground all the debates formerly hidden by the
+                        backlog.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="principle-number">09</div>
+                    <h3 class="principle-title" style="text-align: center">
+                        Agentic Coordination
+                    </h3>
+                    <p class="principle-description" style="text-align: center">
+                        Agents should coordinate like team members. They debate,
+                        challenge assumptions, and improve each other's work.
+                        Design the org chart for the swarm.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">The Solution</div>
+                    <h2 style="text-align: center">Context Engineering</h2>
+                    <p class="max-width-wide" style="text-align: center">
+                        An AI-native knowledge system that implements
+                        <strong>o16g principle #11</strong>. It captures,
+                        structures, and surfaces organizational memory to every
+                        agent, automatically.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">What It Captures</h3>
+                    <div class="stats" style="text-align: center">
+                        <div class="stat">
+                            <div class="stat-number">ADRs</div>
+                            <div class="stat-label">Architecture Decisions</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">FAIL</div>
+                            <div class="stat-label">Failure Analysis</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">MEET</div>
+                            <div class="stat-label">Meeting Outcomes</div>
+                        </div>
+                    </div>
+                    <p class="mt-2">
+                        Plus: Semantic search, multi-agent debates, automated
+                        feedback, and quality control
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">How It Works</h3>
+                    <div class="arch-stack" style="text-align: center">
+                        <div class="arch-box">
+                            <strong>1. CAPTURE</strong><br />
+                            ADRs • Failures • Meetings • Code Snapshots
+                        </div>
+                        <div class="arch-arrow">↓</div>
+                        <div class="arch-box">
+                            <strong>2. PROCESS</strong><br />
+                            Embedding (pgvector) • Semantic Search • Bundler
+                        </div>
+                        <div class="arch-arrow">↓</div>
+                        <div class="arch-box">
+                            <strong>3. SURFACE</strong><br />
+                            Query API • Agent Skills • Integration
+                        </div>
+                        <div class="arch-arrow">↓</div>
+                        <div class="arch-box">
+                            <strong>4. IMPROVE</strong><br />
+                            Feedback • Debates • Judge • Decay Worker
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Example Query</h3>
+                    <div
+                        class="callout max-width-wide"
+                        style="text-align: center"
+                    >
+                        <p class="callout-title">Developer asks:</p>
+                        <p>
+                            "How should I handle database connections in our
+                            listing service?"
+                        </p>
+                    </div>
+                    <div class="media-box max-width-wide">
+                        <p class="media-label">System Response</p>
+                        <div class="media-description">
+                            <p>
+                                <strong>ADR-042:</strong> PostgreSQL Connection
+                                Pooling Strategy
+                            </p>
+                            <p>
+                                <strong>FAIL-027:</strong> Connection Pool
+                                Exhaustion
+                            </p>
+                            <p>
+                                <strong>MEET-015:</strong> Database Performance
+                                Review
+                            </p>
+                            <p style="margin-top: 1em; text-align: center">
+                                Use connection pooler with appropriate pool
+                                size<br />
+                                Always use prepared statements<br />
+                                Circuit breaker pattern after failed connections
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">o16g #14 in Action</div>
+                    <h2 style="text-align: center">Continuous Improvement</h2>
+                    <blockquote style="text-align: center">
+                        "Repeating a mistake is a system failure.<br />
+                        Inoculate the system so the error never happens again."
+                    </blockquote>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Automated Feedback Loop</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>Agents rate context quality (1-5)</li>
+                        <li>Track which items were helpful</li>
+                        <li>Identify missing context</li>
+                        <li>Aggregate stats over time</li>
+                        <li>Auto-archive outdated content</li>
+                    </ul>
+                    <div class="callout mt-2 max-width-narrow">
+                        <p>
+                            ADR-003 has <strong>45 helpful votes</strong><br />
+                            FAIL-042 has <strong>32 references</strong><br />
+                            Most requested: "More code examples"
+                        </p>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">o16g #03 + #09 in Action</div>
+                    <h2 style="text-align: center">Multi-Agent Coordination</h2>
+                    <blockquote style="text-align: center">
+                        "Outcome engineering is a team sport.<br />
+                        Foreground all the debates formerly hidden by the
+                        backlog."
+                    </blockquote>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Multi-Agent Debates</h3>
+                    <p class="max-width-wide" style="text-align: center">
+                        Agents don't just consume context—they
+                        <strong>debate</strong> it. When an agent notices
+                        outdated or incorrect information, it contributes to a
+                        debate. After 3 messages, a judge evaluates and scores
+                        the resource.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">How Debates Work</h3>
+                    <div class="timeline" style="text-align: center">
+                        <div class="timeline-item">
+                            <div class="timeline-label">Message 1</div>
+                            <div class="timeline-content">
+                                "ADR-001 recommends PostgreSQL but we migrated
+                                to MongoDB"
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Message 2</div>
+                            <div class="timeline-content">
+                                "Verified: dependencies show mongodb driver, no
+                                postgresql packages"
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Message 3</div>
+                            <div class="timeline-content">
+                                "All handlers use MongoDB syntax. ADR is
+                                outdated."
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Judge</div>
+                            <div class="timeline-content">
+                                <strong>Score: 1/5</strong> (3 disagree, 0
+                                agree) • <strong>Action: UPDATE</strong
+                                ><br />"All agents report migration to MongoDB.
+                                ADR should be marked superseded."
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Judge Evaluation</h3>
+                    <div class="comparison" style="text-align: center">
+                        <div class="comparison-row">
+                            <div class="comparison-label">≥80% agree</div>
+                            <div class="comparison-value">
+                                <strong>Score 5</strong> • Action: NONE •
+                                Resource is high quality
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">≥60% agree</div>
+                            <div class="comparison-value">
+                                <strong>Score 4</strong> • Action: NONE •
+                                Resource is good
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">≥40% agree</div>
+                            <div class="comparison-value">
+                                <strong>Score 3</strong> • Action: REVIEW •
+                                Mixed opinions
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">≥20% agree</div>
+                            <div class="comparison-value">
+                                <strong>Score 2</strong> • Action: UPDATE • Low
+                                confidence
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">&lt;20% agree</div>
+                            <div class="comparison-value">
+                                <strong>Score 1</strong> • Action:
+                                UPDATE/DEPRECATE • Very low confidence
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">
+                        Future Agents See Judgments
+                    </h3>
+                    <pre style="text-align: left"><code>{
+  "key_decisions": [
+    {
+      "id": "ADR-001",
+      "title": "Use PostgreSQL",
+      "debate": {
+        "status": "judged",
+        "judgment": {
+          "score": 1,
+          "suggested_action": "update",
+          "summary": "Agents report migration to MongoDB"
+        }
+      }
+    }
+  ]
+}</code></pre>
+                    <p class="mt-2">
+                        <strong>Result:</strong> Agents self-correct and avoid
+                        using outdated context
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">o16g #14 in Action</div>
+                    <h2 style="text-align: center">
+                        Automated Quality Control
+                    </h2>
+                    <p class="max-width-wide" style="text-align: center">
+                        Documentation decays over time. The
+                        <strong>Decay Worker</strong> runs daily to identify
+                        outdated content based on age, usage, references,
+                        debates, and feedback.
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">
+                        Automated Quality Control
+                    </h3>
+                    <div
+                        class="comparison max-width-narrow"
+                        style="text-align: center"
+                    >
+                        <div class="comparison-row">
+                            <div class="comparison-label">Score &lt; 30</div>
+                            <div class="comparison-value">Auto-archive</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Score 30-50</div>
+                            <div class="comparison-value">Flag for review</div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Score &gt; 50</div>
+                            <div class="comparison-value">Keep active</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <div class="section-divider">For 4Sale</div>
+                    <h2 style="text-align: center">Why This Matters</h2>
+                    <p class="subtitle" style="text-align: center">
+                        From personal tool to organizational advantage
+                    </p>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Engineering Excellence</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>
+                            <strong>Institutional Memory</strong> — Never lose
+                            knowledge when engineers leave
+                        </li>
+                        <li>
+                            <strong>Consistent Quality</strong> — AI agents
+                            follow organizational patterns, not generic patterns
+                        </li>
+                        <li>
+                            <strong>Faster Delivery</strong> — Eliminate context
+                            switching and information hunting
+                        </li>
+                        <li>
+                            <strong>Risk Mitigation</strong> — Never repeat
+                            critical failures
+                        </li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">MENA Tech Leadership</h3>
+                    <p class="max-width-wide" style="text-align: center">
+                        Be the first major MENA company to publicly implement
+                        o16g principles. Position 4Sale as an innovation leader.
+                    </p>
+                    <div class="stats mt-2" style="text-align: center">
+                        <div class="stat">
+                            <div class="stat-number">1st</div>
+                            <div class="stat-label">o16g adopter in MENA</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">Global</div>
+                            <div class="stat-label">Recognition</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">Top</div>
+                            <div class="stat-label">Talent Magnet</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Community & Ecosystem</h3>
+                    <p class="max-width-wide" style="text-align: center">
+                        Release Context Engineering as open source. Build a
+                        community around it. Position 4Sale as a contributor to
+                        the developer ecosystem, not just a consumer.
+                    </p>
+                    <div
+                        class="timeline mt-2 max-width-narrow"
+                        style="text-align: center"
+                    >
+                        <div class="timeline-item">
+                            <div class="timeline-label">Phase 1</div>
+                            <div class="timeline-content">
+                                Launch on GitHub • Blog posts • Community
+                                outreach
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Phase 2</div>
+                            <div class="timeline-content">
+                                Conference talks • Local meetups • Video
+                                tutorials
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Phase 3</div>
+                            <div class="timeline-content">
+                                IDE extensions • Integration examples •
+                                Community contributions
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Phase 4</div>
+                            <div class="timeline-content">
+                                Growing adoption • Conference workshops •
+                                Ecosystem expansion
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Customer Trust</h3>
+                    <blockquote style="text-align: center">
+                        "We're so serious about quality that we built tools to
+                        prevent our own engineering mistakes. We open-sourced
+                        them so other companies can learn from us."
+                    </blockquote>
+                    <p class="mt-2" style="text-align: center">
+                        <strong>Result:</strong> Sellers and buyers trust 4Sale
+                        as a technically sophisticated, quality-obsessed
+                        platform
+                    </p>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <div class="section-divider">Implementation</div>
+                    <h2 style="text-align: center">Adoption Roadmap</h2>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Step 1: Internal Pilot</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>Deploy to initial team</li>
+                        <li>Seed with existing ADRs and postmortems</li>
+                        <li>Train agent integrations</li>
+                        <li>Collect feedback, measure impact</li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">
+                        Step 2: Organization-Wide
+                    </h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>Expand to all engineering teams</li>
+                        <li>Create shared context bundles</li>
+                        <li>Establish feedback loops and debates</li>
+                        <li>Track key metrics</li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">
+                        Step 3: Open Source Release
+                    </h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>Clean up codebase, write documentation</li>
+                        <li>Create marketing materials and videos</li>
+                        <li>Launch on GitHub and community platforms</li>
+                        <li>Submit conference talks, write case study</li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Measuring Success</h3>
+                    <div class="comparison" style="text-align: center">
+                        <div class="comparison-row">
+                            <div class="comparison-label">Onboarding Time</div>
+                            <div class="comparison-value">
+                                <strong>Significantly reduced</strong>
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">
+                                Repeated Incidents
+                            </div>
+                            <div class="comparison-value">
+                                <strong>Substantially decreased</strong>
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">
+                                Context Search Time
+                            </div>
+                            <div class="comparison-value">
+                                <strong>Near instant retrieval</strong>
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Agent Accuracy</div>
+                            <div class="comparison-value">
+                                <strong>Measurably improved</strong>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <div class="section-divider">Technical Details</div>
+                    <h2 style="text-align: center">Technology Stack</h2>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Stack Components</h3>
+                    <div
+                        class="comparison max-width-narrow"
+                        style="text-align: center"
+                    >
+                        <div class="comparison-row">
+                            <div class="comparison-label">Backend</div>
+                            <div class="comparison-value">
+                                Elixir/Phoenix • OTP workers
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Database</div>
+                            <div class="comparison-value">
+                                PostgreSQL 17 + pgvector
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">AI/ML</div>
+                            <div class="comparison-value">
+                                OpenAI Embeddings + Claude
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Integration</div>
+                            <div class="comparison-value">
+                                REST API + Agent Skills
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mt-2">
+                        All open source dependencies • Self-hostable • No vendor
+                        lock-in
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">API Example</h3>
+                    <pre style="text-align: left"><code>POST /api/context/query
+{
+  "query": "database connection pooling",
+  "domains": [
+    "backend",
+    "infrastructure"
+  ],
+  "max_tokens": 2000,
+  "include_debates": true
+}
+
+# Returns: ADRs, Failures, Meetings
+# with scores & debates</code></pre>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Agent Integration</h3>
+                    <p class="max-width-wide" style="text-align: center">
+                        Works with any agent that can make HTTP requests or run
+                        skills
+                    </p>
+                    <ul
+                        class="max-width-narrow mt-2"
+                        style="text-align: center"
+                    >
+                        <li>Cursor AI (.cursorrules auto-loaded)</li>
+                        <li>GitHub Copilot (workspace.yml)</li>
+                        <li>Claude Code (.clinerules)</li>
+                        <li>Custom agents (REST API)</li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center">
+                    <h3 style="text-align: center">Why Not Existing Tools?</h3>
+                    <div class="comparison" style="text-align: center">
+                        <div class="comparison-row">
+                            <div class="comparison-label">
+                                Notion / Confluence
+                            </div>
+                            <div class="comparison-value">
+                                Not AI-native, manual search, no agent
+                                integration
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">GitHub Wiki</div>
+                            <div class="comparison-value">
+                                Static, no semantic search, no feedback loops
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">Slack / Teams</div>
+                            <div class="comparison-value">
+                                Ephemeral, unsearchable, context lost
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">RAG on Docs</div>
+                            <div class="comparison-value">
+                                No structure, no debate, no quality control
+                            </div>
+                        </div>
+                        <div class="comparison-row">
+                            <div class="comparison-label">
+                                <strong>Context Engineering</strong>
+                            </div>
+                            <div class="comparison-value">
+                                <strong
+                                    >Built for agents, structured,
+                                    self-improving, feedback-driven</strong
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Investment Required</h3>
+                    <div class="stats" style="text-align: center">
+                        <div class="stat">
+                            <div class="stat-number">Small</div>
+                            <div class="stat-label">Team Size</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">Months</div>
+                            <div class="stat-label">Time to Production</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">Low</div>
+                            <div class="stat-label">Infrastructure Cost</div>
+                        </div>
+                    </div>
+                    <div
+                        class="callout mt-2 max-width-wide"
+                        style="text-align: center"
+                    >
+                        <p class="callout-title">ROI</p>
+                        <p style="text-align: center">
+                            Saving engineering time on context searching
+                            translates to
+                            <strong>substantial productivity gains</strong>
+                            across the organization
+                        </p>
+                    </div>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <div class="section-divider">Decision Point</div>
+                    <h2 style="text-align: center">The Question</h2>
+                    <blockquote style="text-align: center">
+                        The question isn't "Should we?" but "How fast can we?"
+                    </blockquote>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">If We Adopt This</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>We become <strong>o16g pioneers</strong></li>
+                        <li>
+                            We attract <strong>top engineering talent</strong>
+                        </li>
+                        <li>We build <strong>institutional memory</strong></li>
+                        <li>We reduce <strong>incidents & errors</strong></li>
+                        <li>
+                            We demonstrate <strong>technical leadership</strong>
+                        </li>
+                        <li>
+                            We give back to the <strong>dev community</strong>
+                        </li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">If We Don't</h3>
+                    <ul class="max-width-narrow" style="text-align: center">
+                        <li>We continue losing context</li>
+                        <li>We repeat mistakes</li>
+                        <li>We slow down agents</li>
+                        <li>We miss positioning opportunity</li>
+                        <li>Someone else becomes the pioneer</li>
+                        <li>We stay a consumer, not contributor</li>
+                    </ul>
+                </section>
+
+                <section style="text-align: center" class="for4sale">
+                    <h3 style="text-align: center">Immediate Next Steps</h3>
+                    <div
+                        class="timeline max-width-narrow"
+                        style="text-align: center"
+                    >
+                        <div class="timeline-item">
+                            <div class="timeline-label">Step 1</div>
+                            <div class="timeline-content">
+                                Identify pilot team • Set up instance • Migrate
+                                existing ADRs • Configure agents
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Step 2</div>
+                            <div class="timeline-content">
+                                Daily usage • Collect feedback • Measure impact
+                                • Iterate on UX
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-label">Decision Point</div>
+                            <div class="timeline-content">
+                                Go/No-Go for org-wide rollout and open source
+                                release
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section style="text-align: center">
+                    <h1 style="text-align: center">
+                        It was never about the code
+                    </h1>
+                    <p class="subtitle" style="text-align: center">
+                        We are the architects of reality
+                    </p>
+                    <p
+                        class="mt-2"
+                        style="
+                            font-size: 0.6em;
+                            color: var(--text-secondary);
+                            text-align: center;
+                        "
+                    >
+                        Context Engineering at 4Sale<br />
+                        Implementing o16g for the agentic era
+                    </p>
+                </section>
+
+                <section style="text-align: center">
+                    <h2 style="text-align: center">Questions?</h2>
+                    <p class="subtitle" style="text-align: center">
+                        Let's discuss
+                    </p>
+                </section>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/notes/notes.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/markdown/markdown.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+        <script>
+            const video = document.getElementById("bg-video");
+            const totalSlides = document.querySelectorAll(
+                ".reveal .slides section",
+            ).length;
+            let videoDuration = 0;
+
+            video.addEventListener("loadedmetadata", function () {
+                videoDuration = video.duration;
+            });
+
+            Reveal.initialize({
+                hash: true,
+                transition: "fade",
+                transitionSpeed: "fast",
+                backgroundTransition: "none",
+                controls: true,
+                progress: true,
+                center: true,
+                width: 1280,
+                height: 720,
+                margin: 0.08,
+                plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+            });
+
+            Reveal.on("ready", (event) => {
+                video.play();
+            });
+        </script>
+    </body>
+</html>

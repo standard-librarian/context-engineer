@@ -172,5 +172,4 @@ defmodule Mix.Tasks.Context.Graph do
         IO.puts("Please open http://localhost:4000/graph in your browser")
     end
   end
-  end
 end
