@@ -284,6 +284,95 @@ except Exception as e:
         print(f"Resolution: {remediation['matches'][0]['resolution']}")
 ```
 
+## Debate Contribution Protocol
+
+After using context, you may optionally contribute to debates about specific resources.
+
+### When to Contribute
+
+- You have a substantive opinion about a resource's accuracy or usefulness
+- You noticed the resource is outdated or missing critical context
+- You disagree with a decision documented in an ADR
+- A failure's resolution was incomplete or could be improved
+
+### How to Contribute
+
+Include `debate_contributions` in your feedback:
+
+```json
+{
+  "query_id": "uuid-from-query-response",
+  "overall_rating": 4,
+  "debate_contributions": [
+    {
+      "resource_id": "ADR-001",
+      "stance": "agree",
+      "argument": "This ADR accurately captured our PostgreSQL decision and has prevented multiple revisits."
+    }
+  ]
+}
+```
+
+### Stance Options
+
+- `agree` - Resource is accurate and useful
+- `disagree` - Resource has issues that should be addressed
+- `neutral` - Observations without strong opinion
+- `question` - Seeking clarification on the resource
+
+### Retrieving Resources with Debate Details
+
+**Include debates in context bundle:**
+
+```bash
+curl -X POST http://localhost:4000/api/context/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "...", "include_debates": true}'
+```
+
+Response includes debate summary in each item:
+
+```json
+{
+  "key_decisions": [
+    {
+      "id": "ADR-001",
+      "title": "Use PostgreSQL",
+      "debate": {
+        "status": "judged",
+        "message_count": 4,
+        "judgment": {
+          "score": 4,
+          "summary": "Agents agree this ADR is accurate but could use updated context...",
+          "suggested_action": "review"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Get specific resource with debate:**
+
+```bash
+curl http://localhost:4000/api/adr/ADR-001
+```
+
+Returns resource with `debate` field if debate exists.
+
+**Query debate directly:**
+
+```bash
+curl "http://localhost:4000/api/debate/by-resource?resource_id=ADR-001&resource_type=adr"
+```
+
+### Debate Lifecycle
+
+1. Agents contribute arguments via feedback
+2. At 3+ messages, a judge agent evaluates
+3. Judge produces: score (1-5), summary, suggested action
+4. Future queries include debate summary for that resource
+
 ## Query Patterns
 
 ### Architecture Questions

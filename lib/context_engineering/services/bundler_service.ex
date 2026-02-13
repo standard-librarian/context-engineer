@@ -11,6 +11,7 @@ defmodule ContextEngineering.Services.BundlerService do
   alias ContextEngineering.Contexts.Failures.Failure
   alias ContextEngineering.Contexts.Meetings.Meeting
   alias ContextEngineering.Contexts.Snapshots.Snapshot
+  alias ContextEngineering.Knowledge
 
   @doc """
   Main bundler function - returns curated context for agents.
@@ -18,6 +19,7 @@ defmodule ContextEngineering.Services.BundlerService do
   def bundle_context(query, opts \\ []) do
     max_tokens = Keyword.get(opts, :max_tokens, 4000)
     domains = Keyword.get(opts, :domains, [])
+    include_debates = Keyword.get(opts, :include_debates, false)
 
     query_id = Ecto.UUID.generate()
 
@@ -29,7 +31,7 @@ defmodule ContextEngineering.Services.BundlerService do
 
     ranked = rank_items(filtered)
 
-    bundle = build_token_limited_bundle(ranked, max_tokens)
+    bundle = build_token_limited_bundle(ranked, max_tokens, include_debates)
 
     bundle_with_query_id = Map.put(bundle, :query_id, query_id)
 
@@ -187,7 +189,7 @@ defmodule ContextEngineering.Services.BundlerService do
     end
   end
 
-  defp build_token_limited_bundle(ranked_items, max_tokens) do
+  defp build_token_limited_bundle(ranked_items, max_tokens, include_debates) do
     chars_per_token = 4
     max_chars = max_tokens * chars_per_token
 
@@ -197,12 +199,42 @@ defmodule ContextEngineering.Services.BundlerService do
     {snapshots, _} = take_items_by_type(remaining, "snapshot", max_chars * 0.2)
     recent_changes = meetings ++ snapshots
 
+    all_items = key_decisions ++ known_issues ++ recent_changes
+
+    items_with_debates =
+      if include_debates do
+        Enum.map(all_items, fn item ->
+          debate = get_debate_for_item(item.id, item.type)
+          Map.put(item, :debate, debate)
+        end)
+      else
+        all_items
+      end
+
+    key_decisions_final = Enum.filter(items_with_debates, &(&1.type == "adr"))
+    known_issues_final = Enum.filter(items_with_debates, &(&1.type == "failure"))
+    recent_changes_final = Enum.filter(items_with_debates, &(&1.type in ["meeting", "snapshot"]))
+
     %{
-      key_decisions: key_decisions,
-      known_issues: known_issues,
-      recent_changes: recent_changes,
-      total_items: length(key_decisions) + length(known_issues) + length(recent_changes)
+      key_decisions: key_decisions_final,
+      known_issues: known_issues_final,
+      recent_changes: recent_changes_final,
+      total_items: length(items_with_debates)
     }
+  end
+
+  defp get_debate_for_item(resource_id, resource_type) do
+    case Knowledge.get_debate_by_resource(resource_id, resource_type) do
+      {:ok, debate} ->
+        %{
+          status: debate.status,
+          message_count: debate.message_count,
+          judgment: debate.judgment
+        }
+
+      {:error, :not_found} ->
+        nil
+    end
   end
 
   defp take_items_by_type(items, type, max_chars) do
