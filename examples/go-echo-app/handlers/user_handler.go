@@ -23,7 +23,6 @@ func NewUserHandler(db *gorm.DB, contextClient *context.Client) *UserHandler {
 	}
 }
 
-// GetUsers returns all users
 func (h *UserHandler) GetUsers(c echo.Context) error {
 	var users []models.User
 	if err := h.db.Find(&users).Error; err != nil {
@@ -34,7 +33,6 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, users)
 }
 
-// GetUser returns a single user
 func (h *UserHandler) GetUser(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -58,7 +56,6 @@ func (h *UserHandler) GetUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-// CreateUser creates a new user
 func (h *UserHandler) CreateUser(c echo.Context) error {
 	user := new(models.User)
 	if err := c.Bind(user); err != nil {
@@ -67,13 +64,11 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		})
 	}
 
-	// Query Context Engineering for past user management decisions
 	ctx, err := h.context.Query(context.QueryRequest{
 		Query:   "user management validation email",
 		Domains: []string{"validation", "users"},
 	})
 	if err == nil && len(ctx.KeyDecisions) > 0 {
-		// Log that we checked organizational context
 		fmt.Printf("📚 Context check: Found %d relevant decisions\n", len(ctx.KeyDecisions))
 		for _, dec := range ctx.KeyDecisions {
 			fmt.Printf("  - %s: %s\n", dec.ID, dec.Title)
@@ -81,7 +76,6 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	}
 
 	if err := h.db.Create(user).Error; err != nil {
-		// Record failure if creation fails
 		_ = h.context.RecordFailure(context.FailureRequest{
 			Title:      "User Creation Failed",
 			RootCause:  fmt.Sprintf("Database error: %v", err),
@@ -101,7 +95,6 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	return c.JSON(http.StatusCreated, user)
 }
 
-// UpdateUser updates an existing user
 func (h *UserHandler) UpdateUser(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -138,7 +131,6 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-// DeleteUser deletes a user
 func (h *UserHandler) DeleteUser(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

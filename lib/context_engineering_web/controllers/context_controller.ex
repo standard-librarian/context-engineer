@@ -47,7 +47,7 @@ defmodule ContextEngineeringWeb.ContextController do
       |> Repo.all()
 
     meetings =
-      from(m in Meeting, where: m.status == "active", order_by: [desc: m.date], limit: ^limit)
+      from(m in Meeting, where: m.status != "archived", order_by: [desc: m.date], limit: ^limit)
       |> Repo.all()
 
     json(conn, %{adrs: adrs, failures: failures, meetings: meetings})

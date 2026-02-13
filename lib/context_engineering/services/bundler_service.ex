@@ -164,22 +164,21 @@ defmodule ContextEngineering.Services.BundlerService do
     max_tokens = Keyword.get(opts, :max_tokens, 4000)
     domains = Keyword.get(opts, :domains, [])
 
-    # Step 1: Semantic search
+    query_id = Ecto.UUID.generate()
+
     {:ok, semantic_results} = SearchService.semantic_search(query, top_k: 20)
 
-    # Step 2: Graph expansion
     graph_results = expand_with_graph(semantic_results)
 
-    # Step 3: Filter by domain if specified
     filtered = maybe_filter_domains(graph_results, domains)
 
-    # Step 4: Rank by composite score
     ranked = rank_items(filtered)
 
-    # Step 5: Build bundle with token limit
     bundle = build_token_limited_bundle(ranked, max_tokens)
 
-    {:ok, bundle}
+    bundle_with_query_id = Map.put(bundle, :query_id, query_id)
+
+    {:ok, bundle_with_query_id}
   end
 
   defp expand_with_graph(items) do

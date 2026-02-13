@@ -69,6 +69,7 @@ defmodule ContextEngineering.Knowledge do
   alias ContextEngineering.Contexts.Failures.Failure
   alias ContextEngineering.Contexts.Meetings.Meeting
   alias ContextEngineering.Contexts.Snapshots.Snapshot
+  alias ContextEngineering.Contexts.Feedbacks.Feedback
   alias ContextEngineering.Services.EmbeddingService
   alias ContextEngineering.Contexts.Relationships.Graph
 
@@ -778,6 +779,99 @@ defmodule ContextEngineering.Knowledge do
           {:error, changeset} -> {:error, changeset}
         end
     end
+  end
+
+  # --- Feedback ---
+
+  def create_feedback(params) do
+    changeset = Feedback.changeset(%Feedback{}, params)
+
+    case Repo.insert(changeset) do
+      {:ok, feedback} -> {:ok, feedback}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  def get_feedback(id) do
+    case Repo.get(Feedback, id) do
+      nil -> {:error, :not_found}
+      feedback -> {:ok, feedback}
+    end
+  end
+
+  def list_feedback(params \\ %{}) do
+    limit = Map.get(params, "limit", 50)
+    agent_id = Map.get(params, "agent_id")
+
+    query =
+      from(f in Feedback,
+        order_by: [desc: f.inserted_at],
+        limit: ^limit
+      )
+
+    query =
+      if agent_id do
+        from(f in query, where: f.agent_id == ^agent_id)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  def feedback_stats(opts \\ []) do
+    days_back = Keyword.get(opts, :days_back, 30)
+
+    since =
+      Date.add(Date.utc_today(), -days_back) |> DateTime.new!(~T[00:00:00]) |> DateTime.to_naive()
+
+    total =
+      from(f in Feedback, where: f.inserted_at >= ^since)
+      |> Repo.aggregate(:count, :id)
+
+    avg_rating =
+      from(f in Feedback,
+        where: f.inserted_at >= ^since and not is_nil(f.overall_rating),
+        select: avg(f.overall_rating)
+      )
+      |> Repo.one()
+
+    most_helpful = most_helpful_items(since)
+    common_missing = common_missing_context(since)
+
+    %{
+      total_feedback: total,
+      avg_rating: avg_rating,
+      most_helpful_items: most_helpful,
+      common_missing_context: common_missing,
+      days_back: days_back
+    }
+  end
+
+  defp most_helpful_items(since) do
+    from(f in Feedback,
+      where: f.inserted_at >= ^since,
+      select: f.items_helpful
+    )
+    |> Repo.all()
+    |> List.flatten()
+    |> Enum.reject(&is_nil/1)
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {_id, count} -> count end, :desc)
+    |> Enum.take(10)
+    |> Enum.map(fn {id, count} -> %{id: id, helpful_count: count} end)
+  end
+
+  defp common_missing_context(since) do
+    from(f in Feedback,
+      where: f.inserted_at >= ^since and not is_nil(f.missing_context),
+      select: f.missing_context
+    )
+    |> Repo.all()
+    |> Enum.frequencies()
+    |> Enum.sort_by(fn {_text, count} -> count end, :desc)
+    |> Enum.take(10)
+    |> Enum.map(fn {text, count} -> %{text: text, count: count} end)
   end
 
   # --- Error Formatting ---

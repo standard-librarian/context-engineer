@@ -251,12 +251,14 @@ defmodule ContextEngineering.Services.SearchService do
       {:ok, [...]}
 
   """
-  def filtered_search(query_text, filters) do
+  def filtered_search(query_text, filters \\ %{}) do
     tags = Map.get(filters, :tags, [])
     date_from = Map.get(filters, :date_from)
     date_to = Map.get(filters, :date_to)
+    types = Map.get(filters, :types, [:adr, :failure, :meeting, :snapshot])
+    top_k = Map.get(filters, :top_k, 20)
 
-    {:ok, results} = semantic_search(query_text)
+    {:ok, results} = semantic_search(query_text, types: types, top_k: top_k)
 
     results
     |> maybe_filter_by_tags(tags)
