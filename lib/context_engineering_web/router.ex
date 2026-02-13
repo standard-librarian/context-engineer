@@ -53,6 +53,13 @@ defmodule ContextEngineeringWeb.Router do
 
     # Auto-remediation
     post("/remediate", RemediationController, :create)
+
+    # Debates
+    get("/debate", DebateController, :index)
+    get("/debate/pending-judgment", DebateController, :pending_judgment)
+    get("/debate/by-resource", DebateController, :by_resource)
+    get("/debate/:id", DebateController, :show)
+    post("/debate/:id/judge", DebateController, :judge)
   end
 
   # Browser routes for graph visualization

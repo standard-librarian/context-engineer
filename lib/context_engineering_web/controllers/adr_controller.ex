@@ -27,10 +27,12 @@ defmodule ContextEngineeringWeb.ADRController do
 
       {:ok, adr} ->
         related = Graph.find_related(id, "adr", depth: 1)
+        debate = get_debate_for_resource(id, "adr")
 
         json(conn, %{
           adr: serialize_adr(adr),
-          related_items: related
+          related_items: related,
+          debate: debate
         })
     end
   end
@@ -80,5 +82,12 @@ defmodule ContextEngineeringWeb.ADRController do
       inserted_at: adr.inserted_at,
       updated_at: adr.updated_at
     }
+  end
+
+  defp get_debate_for_resource(resource_id, resource_type) do
+    case Knowledge.get_debate_by_resource(resource_id, resource_type) do
+      {:ok, debate} -> debate
+      {:error, :not_found} -> nil
+    end
   end
 end

@@ -10,7 +10,21 @@ defmodule ContextEngineering.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+
+      # Docs
+      name: "Context Engineering",
+      source_url: "https://github.com/standard-librarian/context-engineer",
+      homepage_url: "https://github.com/standard-librarian/context-engineer",
+      docs: [
+        main: "readme",
+        extras: [
+          "README.md",
+          "AGENTS.md",
+          "CONTRIBUTING.md",
+          "DOCUMENTATION_SUMMARY.md"
+        ]
+      ]
     ]
   end
 
@@ -53,7 +67,8 @@ defmodule ContextEngineering.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
     ]
   end
 

@@ -25,7 +25,8 @@ defmodule ContextEngineeringWeb.MeetingController do
         |> json(%{error: "Meeting not found"})
 
       {:ok, meeting} ->
-        json(conn, %{meeting: serialize_meeting(meeting)})
+        debate = get_debate_for_resource(id, "meeting")
+        json(conn, %{meeting: serialize_meeting(meeting), debate: debate})
     end
   end
 
@@ -67,5 +68,12 @@ defmodule ContextEngineeringWeb.MeetingController do
       inserted_at: meeting.inserted_at,
       updated_at: meeting.updated_at
     }
+  end
+
+  defp get_debate_for_resource(resource_id, resource_type) do
+    case Knowledge.get_debate_by_resource(resource_id, resource_type) do
+      {:ok, debate} -> debate
+      {:error, :not_found} -> nil
+    end
   end
 end

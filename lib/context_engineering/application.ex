@@ -15,6 +15,8 @@ defmodule ContextEngineering.Application do
       {Phoenix.PubSub, name: ContextEngineering.PubSub},
       # Embedding service (GenServer with loaded model)
       ContextEngineering.Services.EmbeddingService,
+      # Judge worker for debate evaluation
+      ContextEngineering.Workers.JudgeWorker,
       # Quantum scheduler for background jobs
       ContextEngineering.Scheduler,
       # Start to serve requests, typically the last entry

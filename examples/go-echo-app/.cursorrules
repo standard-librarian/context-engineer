@@ -60,6 +60,93 @@ Body: {
 }
 ```
 
+### Submit Feedback
+```
+POST /feedback
+Body: {
+  "query_id": "uuid-of-query",
+  "query_text": "original query text",
+  "overall_rating": 4,
+  "items_helpful": ["ADR-001", "FAIL-042"],
+  "items_not_helpful": ["MEET-003"],
+  "items_used": ["ADR-001"],
+  "missing_context": "Would like more code examples",
+  "agent_id": "cursor-ai",
+  "session_id": "session-uuid",
+  "metadata": {}
+}
+```
+
+### Get Feedback Stats
+```
+GET /feedback/stats?days_back=30
+Response: {
+  "total_feedback": 150,
+  "avg_rating": 4.2,
+  "most_helpful_items": [["ADR-001", 45], ["FAIL-042", 32]],
+  "common_missing_context": [{"text": "Need code examples", "count": 12}],
+  "days_back": 30
+}
+```
+
+### Submit Debate Contribution
+```
+POST /feedback
+Body: {
+  "query_id": "uuid-of-query",
+  "query_text": "original query",
+  "overall_rating": 4,
+  "items_helpful": ["ADR-001"],
+  "agent_id": "cursor-ai",
+  "debate_contributions": [
+    {
+      "resource_id": "ADR-001",
+      "resource_type": "adr",
+      "stance": "disagree",
+      "argument": "This ADR is outdated. We migrated to MongoDB in Q3 2025 but this still recommends PostgreSQL."
+    }
+  ]
+}
+```
+
+### Get Debate for Resource
+```
+GET /debate/by-resource?resource_id=ADR-001&resource_type=adr
+Response: {
+  "id": "debate-uuid",
+  "resource_id": "ADR-001",
+  "resource_type": "adr",
+  "status": "judged",
+  "message_count": 3,
+  "messages": [...],
+  "judgment": {
+    "score": 2,
+    "accuracy_score": 2,
+    "relevance_score": 3,
+    "completeness_score": 2,
+    "clarity_score": 4,
+    "confidence": 0.75,
+    "summary": "Two agents disagree with this ADR claiming it's outdated...",
+    "suggested_action": "update",
+    "action_reason": "Multiple agents report resource is no longer accurate"
+  }
+}
+```
+
+### List Pending Judgments
+```
+GET /debate/pending-judgment
+Response: [
+  {
+    "id": "debate-uuid",
+    "resource_id": "ADR-005",
+    "resource_type": "adr",
+    "message_count": 3,
+    "status": "open"
+  }
+]
+```
+
 ## Workflow
 
 ### When User Asks Implementation Question
@@ -94,6 +181,151 @@ You should:
 3. Create failure record via POST /failure
 4. Confirm: "Recorded as FAIL-XXX"
 
+### When You Observe Issues with Context Resources
+
+**IMPORTANT: Contribute to debates when you notice resource issues**
+
+1. **Outdated Information**: ADR recommends tech no longer in use
+2. **Incorrect Details**: Failure resolution doesn't match current approach
+3. **Missing Context**: Resource lacks critical information
+4. **Contradictions**: Resource conflicts with other organizational knowledge
+
+**Debate Contribution Process:**
+```
+1. Identify the issue with resource (e.g., ADR-001 is outdated)
+2. Formulate clear argument (what's wrong, why it matters)
+3. Choose stance: agree/disagree/neutral/question
+4. Include in feedback with debate_contributions array
+5. After 3 total messages, judge evaluates automatically
+6. Future queries include judgment summary
+```
+
+Example:
+```
+You notice ADR-001 recommends PostgreSQL but team now uses MongoDB.
+
+In your feedback:
+{
+  "debate_contributions": [
+    {
+      "resource_id": "ADR-001",
+      "resource_type": "adr",
+      "stance": "disagree",
+      "argument": "This ADR recommends PostgreSQL but the team migrated to MongoDB in Q3 2025. Current codebase uses MongoDB drivers. This ADR should be marked superseded or updated."
+    }
+  ]
+}
+
+Result: After 3 agents contribute, judge evaluates:
+- Score: 2/5 (low due to disagreements)
+- Suggested action: "update"
+- Summary appears in future queries about ADR-001
+```
+
+### After Providing Context-Based Answer
+
+**IMPORTANT: Always offer feedback collection after using organizational context**
+
+1. After querying context and providing answer, say:
+   ```
+   📊 How helpful was this context?
+   - Which items were most useful? (provide IDs)
+   - Was anything missing?
+   ```
+
+2. If user provides feedback, submit it:
+   ```
+   POST /feedback with:
+   - overall_rating: 1-5 (infer from user satisfaction)
+   - items_helpful: IDs user found useful
+   - items_used: IDs you actually referenced in answer
+   - missing_context: What user wished existed
+   - agent_id: "cursor-ai" or your agent identifier
+   ```
+
+3. Use feedback to improve future responses:
+   - Prioritize items with high helpful ratings
+   - Identify gaps in organizational knowledge
+   - Recognize patterns in missing context
+
+Example:
+```
+You: "According to ADR-005, we wrap errors with fmt.Errorf.
+      FAIL-012 shows missing context caused debugging issues.
+      
+      📊 Was this helpful? Which items did you find most useful?"
+
+User: "ADR-005 was perfect, but I wish there were code examples"
+
+You: [Submits feedback]
+     {
+       "query_text": "error handling patterns",
+       "overall_rating": 4,
+       "items_helpful": ["ADR-005"],
+       "items_used": ["ADR-005", "FAIL-012"],
+       "missing_context": "Code examples for error wrapping",
+       "agent_id": "cursor-ai"
+     }
+     
+     ✓ Feedback recorded. This helps improve future context quality!
+```
+
+### Debate Lifecycle (3-Message Rule)
+
+**How debates work:**
+
+1. **Message 1**: First agent contributes opinion about a resource
+   - Debate status: "open"
+   - No judgment yet
+
+2. **Message 2**: Second agent adds perspective
+   - Debate status: "open"
+   - No judgment yet
+
+3. **Message 3**: Third agent contributes
+   - Debate status: triggers judge
+   - Judge Worker evaluates automatically
+   - Produces score (1-5), summary, suggested action
+
+4. **Post-Judgment**: Future queries include judgment
+   - ADR-001 now shows: "Score: 2/5, Action: update"
+   - Agents see this when querying
+   - Helps avoid using outdated/incorrect resources
+
+**Judge Evaluation:**
+- **Agree ratio ≥80%** → Score: 5, Action: none (resource is good)
+- **Agree ratio ≥60%** → Score: 4, Action: none
+- **Agree ratio ≥40%** → Score: 3, Action: review
+- **Agree ratio ≥20%** → Score: 2, Action: update
+- **Agree ratio <20%** → Score: 1, Action: update/deprecate
+
+**As the judging agent (4th agent):**
+When you query context with debates included, you see judgments from previous agents:
+```json
+{
+  "key_decisions": [
+    {
+      "id": "ADR-001",
+      "title": "Use PostgreSQL",
+      "debate": {
+        "status": "judged",
+        "judgment": {
+          "score": 2,
+          "summary": "Multiple agents report this is outdated...",
+          "suggested_action": "update"
+        }
+      }
+    }
+  ]
+}
+```
+
+**Your responsibility:**
+- Trust the judgment score when deciding which resources to prioritize
+- Mention judgment in your answer: "Note: ADR-001 has a debate score of 2/5..."
+- Suggest action: "This should probably be updated based on the debate"
+- Don't blindly follow low-scored resources
+
 ## Auto-Triggers
 
 Query Context Engineering when user mentions:
@@ -104,6 +336,182 @@ Query Context Engineering when user mentions:
 - "we had an issue..." → Suggest recording as failure
 - "why did we choose..." → Query relevant decisions
 - "past issues with..." → Query relevant failures
+- "that was helpful" → Offer to submit feedback
+- "that wasn't useful" → Offer to submit feedback
+- "I wish there was..." → Record as missing_context in feedback
+- "this is outdated" → Suggest debate contribution
+- "this is wrong" → Suggest debate contribution
+- "we don't use this anymore" → Suggest debate contribution
+- "this contradicts..." → Suggest debate contribution
+
+## Debate Guidelines
+
+### When to Start/Join a Debate
+
+✅ **Always contribute to debates when:**
+- Resource recommends deprecated technology
+- Information contradicts current practice
+- Resolution doesn't match team's actual fix
+- Critical context is missing
+- You observe pattern mismatch with reality
+
+✅ **Stance selection guide:**
+- `agree` - Resource is accurate, helpful, current
+- `disagree` - Resource has errors, outdated, misleading
+- `neutral` - Observations without strong opinion
+- `question` - Need clarification on resource content
+
+✅ **Argument quality:**
+- Be specific: "ADR-001 recommends X but we use Y since date Z"
+- Provide evidence: "Current codebase shows...", "Team migrated to..."
+- Explain impact: "This causes confusion for new developers"
+- Suggest fix: "Should be marked superseded by ADR-042"
+
+❌ **Don't debate on:**
+- Personal preferences without organizational impact
+- Nitpicking minor wording
+- Debates already judged (unless new information)
+
+### Reading Debate Judgments
+
+When you query with `include_debates: true`, you see:
+
+```json
+{
+  "id": "ADR-001",
+  "debate": {
+    "status": "judged",
+    "message_count": 4,
+    "judgment": {
+      "score": 2,
+      "suggested_action": "update",
+      "summary": "Agents report outdated tech..."
+    }
+  }
+}
+```
+
+**How to use this:**
+1. **Score 4-5**: High confidence, use resource
+2. **Score 3**: Mixed opinions, use with caution
+3. **Score 1-2**: Low confidence, verify before using
+4. **Action "update"**: Suggest user updates this resource
+5. **Action "deprecate"**: Avoid using, find alternative
+
+**In your response:**
+```
+"Based on ADR-001 (debate score: 2/5), PostgreSQL was originally chosen.
+However, the debate suggests this is outdated. Let me check for newer decisions..."
+```
+
+### Debate Contribution Examples
+
+**Example 1: Outdated Technology**
+```json
+{
+  "resource_id": "ADR-001",
+  "stance": "disagree",
+  "argument": "This ADR from 2023 recommends PostgreSQL. The team migrated to MongoDB in Q3 2025 (see ADR-042). Current go.mod shows MongoDB driver, not PostgreSQL. This should be superseded."
+}
+```
+
+**Example 2: Incomplete Resolution**
+```json
+{
+  "resource_id": "FAIL-012",
+  "stance": "neutral",
+  "argument": "The resolution mentions increasing connection pool but doesn't specify the values. Current config shows pool_size=200, which should be documented here for future reference."
+}
+```
+
+**Example 3: Validation Question**
+```json
+{
+  "resource_id": "ADR-005",
+  "stance": "question",
+  "argument": "This ADR mentions 'team expertise with Redis' but doesn't specify which team members. Is this still accurate after recent team changes?"
+}
+```
+
+**Example 4: Confirmation of Accuracy**
+```json
+{
+  "resource_id": "ADR-003",
+  "stance": "agree",
+  "argument": "This ADR accurately describes our email validation strategy. Current codebase in handlers/user_handler.go:42 implements exactly this pattern. No changes needed."
+}
+```
+
+## Feedback Guidelines
+
+### When to Collect Feedback
+
+✅ **Always collect feedback after:**
+- Providing context-based recommendations
+- Referencing ADRs, Failures, or Meetings
+- User explicitly evaluates your answer
+- User says "that helped" or "that didn't help"
+
+✅ **Automatically infer rating from user responses:**
+- "Perfect!" / "Exactly what I needed" → rating: 5
+- "That helps" / "Good to know" → rating: 4
+- "Okay" / "I guess" → rating: 3
+- "Not quite" / "Hmm" → rating: 2
+- "That's not helpful" / "Wrong" → rating: 1
+
+✅ **Track what you actually used:**
+- `items_helpful`: What user found valuable
+- `items_used`: What you referenced in your answer
+- `items_not_helpful`: What wasn't relevant
+
+✅ **Capture missing context:**
+- "I wish there was X" → missing_context: "X"
+- "Do we have examples?" → missing_context: "Code examples"
+- "What about Y scenario?" → missing_context: "Y scenario documentation"
+
+### Feedback Quality Examples
+
+**Good Feedback:**
+```json
+{
+  "query_text": "database connection pool sizing",
+  "overall_rating": 4,
+  "items_helpful": ["ADR-001", "FAIL-042"],
+  "items_not_helpful": ["MEET-003"],
+  "items_used": ["ADR-001", "FAIL-042"],
+  "missing_context": "Would like connection pool configuration examples for different load scenarios",
+  "agent_id": "cursor-ai"
+}
+```
+
+**Poor Feedback:**
+```json
+{
+  "overall_rating": 3,
+  "missing_context": "more info"
+}
+// Missing: query_text, which items, what specific info
+```
+
+### Using Feedback Stats
+
+**Check feedback stats periodically:**
+```bash
+curl http://localhost:4000/api/feedback/stats?days_back=30
+```
+
+**Use stats to:**
+1. **Prioritize high-value items** - Reference most_helpful_items first
+2. **Identify knowledge gaps** - Check common_missing_context
+3. **Improve recommendations** - Avoid items_not_helpful
+4. **Track quality trends** - Monitor avg_rating over time
+
+**Example usage:**
+```
+You query context and see FAIL-042 in results.
+You check stats: FAIL-042 has 32 helpful votes.
+You prioritize it: "FAIL-042 (highly referenced by team) shows..."
+```
 
 ## Code Patterns
 
@@ -223,11 +631,373 @@ curl -X POST http://localhost:4000/api/context/query \
 
 1. **Always query before suggesting** - Check organizational context first
 2. **Reference specific items** - Cite ADR-XXX or FAIL-XXX in responses
-3. **Suggest recording decisions** - Prompt user to document important choices
-4. **Consider known issues** - Don't suggest patterns that failed before
-5. **Link related context** - Connect decisions, failures, and meetings
-6. **Use Go idioms** - Follow Go conventions and organizational standards
-7. **Handle errors properly** - Follow organizational error handling patterns
-8. **Validate inputs** - Use organizational validation strategies
-9. **Test thoroughly** - Check both happy path and error cases
-10. **Document decisions** - Record ADRs for future reference
+3. **Collect feedback after context use** - Help improve context quality
+4. **Suggest recording decisions** - Prompt user to document important choices
+5. **Consider known issues** - Don't suggest patterns that failed before
+6. **Link related context** - Connect decisions, failures, and meetings
+7. **Use Go idioms** - Follow Go conventions and organizational standards
+8. **Handle errors properly** - Follow organizational error handling patterns
+9. **Validate inputs** - Use organizational validation strategies
+10. **Test thoroughly** - Check both happy path and error cases
+11. **Document decisions** - Record ADRs for future reference
+12. **Track what works** - Submit feedback on helpful vs unhelpful items
+13. **Identify gaps** - Record missing_context to improve documentation
+14. **Learn from trends** - Check feedback stats to prioritize high-value items
+
+## Practical Feedback Workflow Examples
+
+### Example 1: Simple Query with Feedback
+
+```
+User: "How should I handle database errors in Go?"
+
+You:
+1. Query Context Engineering:
+   POST /context/query {"query": "database error handling golang gorm"}
+
+2. Receive results:
+   - ADR-005: Error Wrapping Strategy
+   - FAIL-012: Missing Error Context
+   - FAIL-018: Swallowed Database Errors
+
+3. Provide answer:
+   "According to ADR-005, we wrap all errors with fmt.Errorf using %w verb.
+    FAIL-012 shows that missing context made debugging difficult.
+    
+    Here's the pattern:
+    
+    func createUser(db *gorm.DB, user *User) error {
+        if err := db.Create(user).Error; err != nil {
+            return fmt.Errorf("create user %s: %w", user.Email, err)
+        }
+        return nil
+    }
+    
+    📊 Was this helpful? Which items were most useful?"
+
+4. User responds:
+   "Perfect! ADR-005 was exactly what I needed."
+
+5. Submit feedback:
+   POST /feedback {
+     "query_text": "database error handling golang gorm",
+     "overall_rating": 5,
+     "items_helpful": ["ADR-005"],
+     "items_used": ["ADR-005", "FAIL-012"],
+     "items_not_helpful": ["FAIL-018"],
+     "missing_context": "",
+     "agent_id": "cursor-ai"
+   }
+
+6. Confirm:
+   "✓ Feedback recorded. Thanks for helping improve our context!"
+```
+
+### Example 2: Missing Context Scenario
+
+```
+User: "What's our connection pool configuration?"
+
+You:
+1. Query: {"query": "database connection pool configuration golang"}
+
+2. Results:
+   - ADR-001: Use PostgreSQL (mentions pool but no specifics)
+   - FAIL-042: Connection Pool Exhaustion (resolution but no config)
+
+3. Provide answer:
+   "Based on FAIL-042, we increased the pool size after exhaustion issues,
+    but I don't see the specific configuration documented.
+    
+    📊 Is the configuration you need documented elsewhere?"
+
+4. User responds:
+   "No, I wish there was a documented config example. I'll have to dig through code."
+
+5. Submit feedback:
+   POST /feedback {
+     "query_text": "database connection pool configuration golang",
+     "overall_rating": 2,
+     "items_helpful": ["FAIL-042"],
+     "items_used": ["ADR-001", "FAIL-042"],
+     "missing_context": "Connection pool configuration examples with recommended values",
+     "agent_id": "cursor-ai"
+   }
+
+6. Suggest action:
+   "✓ Feedback recorded. Should we create an ADR documenting the connection pool config?"
+```
+
+### Example 3: Using Feedback Stats to Improve
+
+```
+User: "Show me validation patterns"
+
+You:
+1. Check feedback stats first:
+   GET /feedback/stats?days_back=30
+   
+   Response shows:
+   - most_helpful_items: [["ADR-003", 45], ["FAIL-007", 32]]
+   - common_missing_context: [{"text": "validation code examples", "count": 12}]
+
+2. Query context:
+   POST /context/query {"query": "validation patterns golang"}
+
+3. Results:
+   - ADR-003: Email Validation Strategy (45 helpful votes!)
+   - ADR-015: Input Sanitization
+   - FAIL-007: Regex Pattern Too Permissive (32 helpful votes!)
+
+4. Provide answer (prioritizing high-value items):
+   "ADR-003 (highly referenced by team) defines our email validation strategy.
+    FAIL-007 (32 helpful votes) shows the regex pattern we had issues with.
+    
+    Team feedback shows developers often want validation code examples, so here's the pattern:
+    
+    func validateEmail(email string) error {
+        // From ADR-003, avoiding FAIL-007's overly permissive pattern
+        pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+        matched, _ := regexp.MatchString(pattern, email)
+        if !matched {
+            return fmt.Errorf("invalid email format")
+        }
+        return nil
+    }
+    
+    📊 Does this example help address the validation code gap?"
+
+5. User responds:
+   "Yes! This is exactly what I needed."
+
+6. Submit feedback:
+   POST /feedback {
+     "query_text": "validation patterns golang",
+     "overall_rating": 5,
+     "items_helpful": ["ADR-003", "FAIL-007"],
+     "items_used": ["ADR-003", "FAIL-007"],
+     "missing_context": "",
+     "agent_id": "cursor-ai",
+     "metadata": {
+       "addressed_common_gap": "validation code examples"
+     }
+   }
+```
+
+### Example 4: Negative Feedback Leading to Improvement
+
+```
+User: "What's our authentication approach?"
+
+You:
+1. Query: {"query": "authentication golang api"}
+
+2. Results:
+   - MEET-010: Q3 Security Discussion
+   - ADR-020: API Security Strategy
+   - FAIL-025: Auth Token Expiry
+
+3. Provide answer:
+   "MEET-010 discussed security approaches. ADR-020 chose... [answer]"
+
+4. User responds:
+   "That meeting was 2 years ago and superseded. ADR-020 is outdated."
+
+5. Submit feedback:
+   POST /feedback {
+     "query_text": "authentication golang api",
+     "overall_rating": 1,
+     "items_helpful": [],
+     "items_not_helpful": ["MEET-010", "ADR-020"],
+     "items_used": ["MEET-010", "ADR-020", "FAIL-025"],
+     "missing_context": "Current authentication implementation (JWT, sessions, etc)",
+     "agent_id": "cursor-ai",
+     "metadata": {
+       "issue": "outdated_results",
+       "suggestion": "need_current_adr"
+     }
+   }
+
+6. Suggest action:
+   "✓ Feedback recorded. 
+    
+    Should we:
+    1. Create a new ADR documenting current auth approach?
+    2. Mark ADR-020 as superseded?
+    3. Archive MEET-010 as outdated?"
+```
+
+### Feedback Submission Template
+
+Use this as a mental checklist for every context-based answer:
+
+```
+After providing context-based answer:
+
+1. ✅ Did I query organizational context?
+2. ✅ Did I reference specific ADRs/Failures?
+3. ✅ Did I ask if it was helpful?
+4. ⏸️  Waiting for user feedback...
+
+If user responds positively/negatively:
+
+5. ✅ Infer rating (1-5) from user tone
+6. ✅ Identify items_helpful from user comments
+7. ✅ List items_used that I referenced
+8. ✅ Capture missing_context from "I wish" statements
+9. ✅ Submit feedback to /api/feedback
+10. ✅ Confirm submission to user
+11. ✅ Offer to create ADR/record failure if gaps identified
+```
+
+### Quick Feedback Tips
+
+**DO:**
+- ✅ Always offer feedback collection after using context
+- ✅ Infer satisfaction level from user's tone
+- ✅ Be specific about which items were/weren't helpful
+- ✅ Capture exact phrasing of missing_context requests
+- ✅ Use feedback stats to prioritize high-value items
+- ✅ Suggest creating ADRs when gaps are identified
+
+**DON'T:**
+- ❌ Skip feedback collection (it improves the system!)
+- ❌ Submit vague feedback ("it was okay")
+- ❌ Forget to track items_used vs items_helpful
+- ❌ Ignore negative feedback patterns
+- ❌ Submit feedback without query_text
+- ❌ Assume feedback is optional (it's core to learning)
+- ❌ Skip debate contributions when you notice issues
+- ❌ Use low-scored resources without mentioning debate results
+
+## Debate Workflow Examples
+
+### Example 1: Contributing to Existing Debate
+
+```
+User: "How do we handle database connections?"
+
+You:
+1. Query: {"query": "database connection golang", "include_debates": true}
+
+2. Results show:
+   - ADR-001: Use PostgreSQL (debate score: 2/5, action: update)
+   - Debate messages:
+     [DISAGREE] agent-1: "We migrated to MongoDB in Q3 2025"
+     [DISAGREE] agent-2: "go.mod shows MongoDB driver"
+
+3. Your response:
+   "ADR-001 originally recommended PostgreSQL, but has a debate score of 2/5.
+    Two agents report the team migrated to MongoDB in Q3 2025.
+    
+    Let me check for newer decisions about MongoDB..."
+
+4. Submit feedback with debate contribution (you're the 3rd message):
+   POST /feedback {
+     "debate_contributions": [{
+       "resource_id": "ADR-001",
+       "stance": "disagree",
+       "argument": "Confirming migration to MongoDB. Current codebase in main.go:16 uses MongoDB driver. ADR-001 should be superseded."
+     }]
+   }
+
+5. System triggers judge (3 messages reached)
+
+6. Judge evaluates:
+   - 3 disagree, 0 agree → Score: 1/5
+   - Suggested action: "update"
+   - Summary: "All agents agree this is outdated due to MongoDB migration"
+
+7. Next agent sees judgment and knows not to trust ADR-001
+```
+
+### Example 2: Starting a New Debate
+
+```
+User: "What's our error handling pattern?"
+
+You:
+1. Query: {"query": "error handling golang patterns", "include_debates": true}
+
+2. Results show:
+   - ADR-005: Error Wrapping Strategy
+   - No debate exists
+
+3. You notice: ADR-005 from 2023 recommends pkg/errors but go.mod shows fmt.Errorf
+
+4. Your response:
+   "ADR-005 recommends using pkg/errors library for error wrapping.
+    However, I notice go.mod doesn't include pkg/errors...
+    
+    📊 Should I check if this ADR is still current?"
+
+5. User confirms: "Yeah, we stopped using pkg/errors"
+
+6. Submit debate contribution (1st message, starts debate):
+   POST /feedback {
+     "debate_contributions": [{
+       "resource_id": "ADR-005",
+       "stance": "disagree",
+       "argument": "ADR-005 recommends pkg/errors but go.mod shows we use stdlib fmt.Errorf with %w verb. Dependency was removed in 2024. This ADR needs updating."
+     }]
+   }
+
+7. Debate created, awaits 2 more messages before judgment
+```
+
+### Example 3: Judging Agent Perspective (4th+ Agent)
+
+```
+User: "How should we handle database errors?"
+
+You:
+1. Query: {"query": "database error handling", "include_debates": true}
+
+2. Results show:
+   - ADR-005: Error Wrapping (debate score: 1/5, action: update)
+   - Judgment summary: "All 3 agents agree this is outdated..."
+
+3. Your response acknowledges judgment:
+   "I found ADR-005 about error wrapping, but it has a debate score of 1/5
+    with all agents reporting it's outdated.
+    
+    The debate suggests we now use fmt.Errorf instead of pkg/errors.
+    Let me look for newer decisions or check current code patterns..."
+
+4. You DON'T blindly follow ADR-005
+
+5. You MAY add 4th message if you have new information:
+   POST /feedback {
+     "debate_contributions": [{
+       "resource_id": "ADR-005",
+       "stance": "disagree",
+       "argument": "Confirmed in current codebase: all error handling uses fmt.Errorf with %w. Suggest marking this superseded or creating new ADR."
+     }]
+   }
+```
+
+### Example 4: Questioning for Clarification
+
+```
+User: "Why did we choose Redis?"
+
+You:
+1. Query: {"query": "redis caching decision"}
+
+2. Results:
+   - ADR-002: Use Redis for Caching
+   - Mentions "team expertise with Redis"
+
+3. You wonder if this is still valid after time
+
+4. Submit question-stance debate:
+   POST /feedback {
+     "debate_contributions": [{
+       "resource_id": "ADR-002",
+       "stance": "question",
+       "argument": "This ADR mentions team expertise with Redis from 2023. Has the team composition changed? Is this expertise still current?"
+     }]
+   }
+
+5. Human or other agents can respond to clarify
+```
