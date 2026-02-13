@@ -70,6 +70,9 @@ defmodule ContextEngineering.Knowledge do
   alias ContextEngineering.Contexts.Meetings.Meeting
   alias ContextEngineering.Contexts.Snapshots.Snapshot
   alias ContextEngineering.Contexts.Feedbacks.Feedback
+  alias ContextEngineering.Contexts.Debates.Debate
+  alias ContextEngineering.Contexts.Debates.DebateMessage
+  alias ContextEngineering.Contexts.Debates.DebateJudgment
   alias ContextEngineering.Services.EmbeddingService
   alias ContextEngineering.Contexts.Relationships.Graph
 
@@ -873,6 +876,134 @@ defmodule ContextEngineering.Knowledge do
     |> Enum.take(10)
     |> Enum.map(fn {text, count} -> %{text: text, count: count} end)
   end
+
+  # --- Debate ---
+
+  def get_or_create_debate(resource_id, resource_type) do
+    case get_debate_by_resource(resource_id, resource_type) do
+      {:ok, debate} -> {:ok, debate}
+      {:error, :not_found} -> create_debate(resource_id, resource_type)
+    end
+  end
+
+  def get_debate_by_resource(resource_id, resource_type) do
+    case Repo.one(
+           from(d in Debate,
+             where: d.resource_id == ^resource_id and d.resource_type == ^resource_type,
+             preload: [:messages, :judgment]
+           )
+         ) do
+      nil -> {:error, :not_found}
+      debate -> {:ok, debate}
+    end
+  end
+
+  def get_debate(id) do
+    case Repo.get(Debate, id) |> Repo.preload([:messages, :judgment]) do
+      nil -> {:error, :not_found}
+      debate -> {:ok, debate}
+    end
+  end
+
+  def create_debate(resource_id, resource_type) do
+    changeset =
+      %Debate{}
+      |> Debate.changeset(%{
+        resource_id: resource_id,
+        resource_type: resource_type,
+        status: "open"
+      })
+
+    case Repo.insert(changeset) do
+      {:ok, debate} -> {:ok, debate}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  def add_debate_message(debate_id, attrs) do
+    {:ok, _} =
+      %DebateMessage{}
+      |> DebateMessage.changeset(Map.put(attrs, "debate_id", debate_id))
+      |> Repo.insert()
+
+    debate = Repo.get!(Debate, debate_id)
+
+    new_count = debate.message_count + 1
+
+    debate
+    |> Debate.changeset(%{message_count: new_count})
+    |> Repo.update()
+
+    {:ok, Repo.get!(Debate, debate_id) |> Repo.preload([:messages, :judgment])}
+  end
+
+  def create_judgment(debate_id, attrs) do
+    changeset =
+      %DebateJudgment{}
+      |> DebateJudgment.changeset(Map.put(attrs, "debate_id", debate_id))
+
+    case Repo.insert(changeset) do
+      {:ok, _judgment} ->
+        {:ok, debate} =
+          get_debate(debate_id)
+          |> then(fn {:ok, d} ->
+            d
+            |> Debate.changeset(%{status: "judged", judge_triggered_at: NaiveDateTime.utc_now()})
+            |> Repo.update()
+          end)
+
+        {:ok, Repo.preload(debate, [:messages, :judgment])}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  def list_pending_judgments do
+    from(d in Debate,
+      where: d.message_count >= 3 and d.status == "open",
+      preload: [:messages, :judgment]
+    )
+    |> Repo.all()
+  end
+
+  def list_debates(params \\ %{}) do
+    limit = Map.get(params, "limit", 50)
+    status = Map.get(params, "status")
+
+    query =
+      from(d in Debate,
+        order_by: [desc: d.inserted_at],
+        limit: ^limit,
+        preload: [:messages, :judgment]
+      )
+
+    query =
+      if status do
+        from(d in query, where: d.status == ^status)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  def get_debate_with_resource(debate_id) do
+    case get_debate(debate_id) do
+      {:ok, debate} ->
+        resource = get_resource(debate.resource_id, debate.resource_type)
+        {:ok, Map.put(debate, :resource, resource)}
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+    end
+  end
+
+  defp get_resource(id, "adr"), do: Repo.get(ADR, id)
+  defp get_resource(id, "failure"), do: Repo.get(Failure, id)
+  defp get_resource(id, "meeting"), do: Repo.get(Meeting, id)
+  defp get_resource(id, "snapshot"), do: Repo.get(Snapshot, id)
+  defp get_resource(_id, _type), do: nil
 
   # --- Error Formatting ---
 

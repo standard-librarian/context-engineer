@@ -362,3 +362,19 @@ curl -X POST http://localhost:4000/api/feedback \
 ```
 
 This feedback loop helps the system learn which resolutions are most effective and improves ranking for future remediation queries.
+
+## Debates on Recorded Items
+
+Any ADR, Failure, or Meeting you record can be debated. The system automatically creates debate slots when feedback includes debate contributions. Monitor your recorded items for debate activity:
+
+```bash
+# Check for debates on your items
+curl "http://localhost:4000/api/debate/by-resource?resource_id=ADR-001&resource_type=adr"
+```
+
+When an item receives 3+ debate contributions, a judge evaluates and produces:
+- Overall score (1-5)
+- Summary of the debate
+- Suggested action (none, review, update, deprecate)
+
+Use debate feedback to improve your recorded knowledge over time.

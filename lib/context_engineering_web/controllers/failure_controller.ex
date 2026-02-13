@@ -27,10 +27,12 @@ defmodule ContextEngineeringWeb.FailureController do
 
       {:ok, failure} ->
         related = Graph.find_related(id, "failure", depth: 1)
+        debate = get_debate_for_resource(id, "failure")
 
         json(conn, %{
           failure: serialize_failure(failure),
-          related_items: related
+          related_items: related,
+          debate: debate
         })
     end
   end
@@ -81,5 +83,12 @@ defmodule ContextEngineeringWeb.FailureController do
       inserted_at: failure.inserted_at,
       updated_at: failure.updated_at
     }
+  end
+
+  defp get_debate_for_resource(resource_id, resource_type) do
+    case Knowledge.get_debate_by_resource(resource_id, resource_type) do
+      {:ok, debate} -> debate
+      {:error, :not_found} -> nil
+    end
   end
 end
